@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using CloudNativeDesigner.Config;
 using CloudNativeDesigner.Controls;
 using CloudNativeDesigner.Core;
+using CloudNativeDesigner.Shapes;
 
 namespace CloudNativeDesigner
 {
