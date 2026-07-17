@@ -21,4 +21,8 @@
 非常感谢！您的这个版本中有大量的Func委托语法是.net2.0所不兼容的；在ToolboxPanel.cs文件中为了保证图形可访问增添了using CloudNativeDesigner.Shapes和using System.Drawing.Drawing2D引用；在Connection.cs文件中为了保证声明可及将Draw方法下的PointF[] points = GetDrawPoints();上调至UpdateEndpoints();后面；在ContainerShape.cs文件中增添了using System.ComponentModel;方法；其他请您自行排查代码可用性等问题，然后让我们一起再尝试一下。
 
 
+>
+我们再接再厉 进一步将图形解耦 组件充分实现相关特性 如层叠 可内嵌 状态切换 如类图般的成员体现等 但不硬编码实现具体图形 使之变得于运行时易于配置增减 并实现一套XML序列化方法 非常感谢！
+
+
 >>>>>>>>>>>>>>>>>>>

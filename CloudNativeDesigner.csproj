@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="2.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -32,20 +32,32 @@
     <Reference Include="System" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="MainForm.cs" />
+    <Compile Include="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Config\GlobalConfig.cs" />
     <Compile Include="Core\ShapeBase.cs" />
     <Compile Include="Core\Connection.cs" />
     <Compile Include="Core\DrawingDocument.cs" />
+    <Compile Include="Core\XmlColor.cs" />
+    <Compile Include="Core\RenderCommand.cs" />
+    <Compile Include="Core\ShapeMember.cs" />
+    <Compile Include="Core\ShapeMemberParameter.cs" />
+    <Compile Include="Core\ShapeState.cs" />
+    <Compile Include="Core\ShapeType.cs" />
+    <Compile Include="Core\ShapeTypeRegistry.cs" />
     <Compile Include="Controls\ToolboxPanel.cs" />
-    <Compile Include="Controls\DrawingCanvas.cs" />
-    <Compile Include="Shapes\RectangleShape.cs" />
-    <Compile Include="Shapes\EllipseShape.cs" />
-    <Compile Include="Shapes\DiamondShape.cs" />
+    <Compile Include="Controls\DrawingCanvas.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Shapes\GenericShape.cs" />
     <Compile Include="Shapes\ContainerShape.cs" />
+    <Compile Include="Serialization\DocumentData.cs" />
+    <Compile Include="Serialization\XmlShapeSerializer.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
