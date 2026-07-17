@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using CloudNativeDesigner.Core;
-using CloudNativeDesigner.Shapes;
 
 namespace CloudNativeDesigner.Controls
 {
@@ -56,41 +55,29 @@ namespace CloudNativeDesigner.Controls
             this.BorderStyle = BorderStyle.FixedSingle;
             this.AutoScroll = true;
             this.DoubleBuffered = true;
-
-            InitializeDefaultItems();
         }
 
-        private void InitializeDefaultItems()
+        public void ReloadFromRegistry()
         {
-            ToolboxItem rectItem = new ToolboxItem();
-            rectItem.Name = "矩形";
-            rectItem.Category = "基本图形";
-            rectItem.CreateShape = new CreateShapeHandler(CreateRectangle);
-            AddItem(rectItem);
+            _items.Clear();
+            _selectedItem = null;
 
-            ToolboxItem ellipseItem = new ToolboxItem();
-            ellipseItem.Name = "椭圆";
-            ellipseItem.Category = "基本图形";
-            ellipseItem.CreateShape = new CreateShapeHandler(CreateEllipse);
-            AddItem(ellipseItem);
-
-            ToolboxItem diamondItem = new ToolboxItem();
-            diamondItem.Name = "菱形";
-            diamondItem.Category = "基本图形";
-            diamondItem.CreateShape = new CreateShapeHandler(CreateDiamond);
-            AddItem(diamondItem);
-
-            ToolboxItem containerItem = new ToolboxItem();
-            containerItem.Name = "容器";
-            containerItem.Category = "容器";
-            containerItem.CreateShape = new CreateShapeHandler(CreateContainer);
-            AddItem(containerItem);
+            List<string> categories = ShapeTypeRegistry.Instance.GetCategories();
+            foreach (string category in categories)
+            {
+                List<ShapeType> types = ShapeTypeRegistry.Instance.GetTypesByCategory(category);
+                foreach (ShapeType type in types)
+                {
+                    ToolboxItem item = new ToolboxItem();
+                    item.Name = type.Name;
+                    item.Category = type.Category;
+                    item.CreateShape = new CreateShapeHandler(type.CreateInstance);
+                    item.Icon = CreateIconFromType(type);
+                    _items.Add(item);
+                }
+            }
+            Invalidate();
         }
-
-        private static ShapeBase CreateRectangle() { return new RectangleShape(); }
-        private static ShapeBase CreateEllipse() { return new EllipseShape(); }
-        private static ShapeBase CreateDiamond() { return new DiamondShape(); }
-        private static ShapeBase CreateContainer() { return new ContainerShape(); }
 
         public void AddItem(ToolboxItem item)
         {
@@ -233,6 +220,33 @@ namespace CloudNativeDesigner.Controls
             Invalidate();
         }
 
+        private Bitmap CreateIconFromType(ShapeType shapeType)
+        {
+            Bitmap bmp = new Bitmap(_iconSize, _iconSize);
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.Clear(Color.Transparent);
+
+                try
+                {
+                    ShapeBase shape = shapeType.CreateInstance();
+                    shape.Bounds = new RectangleF(2, 2, _iconSize - 4, _iconSize - 4);
+                    shape.Draw(g, 1.0f);
+                }
+                catch
+                {
+                    using (Brush brush = new SolidBrush(Color.FromArgb(200, 200, 200)))
+                    using (Pen pen = new Pen(Color.FromArgb(120, 120, 120)))
+                    {
+                        g.FillRectangle(brush, 2, 2, _iconSize - 4, _iconSize - 4);
+                        g.DrawRectangle(pen, 2, 2, _iconSize - 4, _iconSize - 4);
+                    }
+                }
+            }
+            return bmp;
+        }
+
         private Bitmap CreateDefaultIcon(ToolboxItem item)
         {
             Bitmap bmp = new Bitmap(_iconSize, _iconSize);
@@ -253,18 +267,18 @@ namespace CloudNativeDesigner.Controls
                     }
                     catch
                     {
-                        DrawFallbackIcon(g, rect, item.Name);
+                        DrawFallbackIcon(g, rect);
                     }
                 }
                 else
                 {
-                    DrawFallbackIcon(g, rect, item.Name);
+                    DrawFallbackIcon(g, rect);
                 }
             }
             return bmp;
         }
 
-        private void DrawFallbackIcon(Graphics g, Rectangle rect, string name)
+        private void DrawFallbackIcon(Graphics g, Rectangle rect)
         {
             using (Brush brush = new SolidBrush(Color.FromArgb(200, 200, 200)))
             using (Pen pen = new Pen(Color.FromArgb(120, 120, 120)))
