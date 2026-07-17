@@ -35,17 +35,16 @@ namespace CloudNativeDesigner.Shapes
 
         private void DrawText(Graphics g, float scale)
         {
-            if (string.IsNullOrEmpty(Name)) return;
+            if (string.IsNullOrEmpty(Name))
+                return;
 
             using (Font font = new Font("Microsoft YaHei", 10f / scale, FontStyle.Regular))
             using (Brush brush = new SolidBrush(TextColor))
             {
-                StringFormat sf = new StringFormat
-                {
-                    Alignment = StringAlignment.Center,
-                    LineAlignment = StringAlignment.Center,
-                    Trimming = StringTrimming.EllipsisCharacter
-                };
+                StringFormat sf = new StringFormat();
+                sf.Alignment = StringAlignment.Center;
+                sf.LineAlignment = StringAlignment.Center;
+                sf.Trimming = StringTrimming.EllipsisCharacter;
 
                 RectangleF textRect = Bounds;
                 textRect.Inflate(-10 / scale, -10 / scale);
@@ -70,17 +69,16 @@ namespace CloudNativeDesigner.Shapes
 
         public override ShapeBase Clone()
         {
-            return new EllipseShape
-            {
-                Id = Guid.NewGuid(),
-                Name = this.Name,
-                Description = this.Description,
-                Bounds = this.Bounds,
-                FillColor = this.FillColor,
-                BorderColor = this.BorderColor,
-                TextColor = this.TextColor,
-                BorderWidth = this.BorderWidth
-            };
+            EllipseShape clone = new EllipseShape();
+            clone.Id = Guid.NewGuid();
+            clone.Name = this.Name;
+            clone.Description = this.Description;
+            clone.Bounds = this.Bounds;
+            clone.FillColor = this.FillColor;
+            clone.BorderColor = this.BorderColor;
+            clone.TextColor = this.TextColor;
+            clone.BorderWidth = this.BorderWidth;
+            return clone;
         }
     }
 }

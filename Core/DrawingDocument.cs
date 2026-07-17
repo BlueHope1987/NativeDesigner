@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 
 namespace CloudNativeDesigner.Core
 {
@@ -30,7 +29,8 @@ namespace CloudNativeDesigner.Core
 
         public void AddShape(ShapeBase shape)
         {
-            if (shape == null) return;
+            if (shape == null)
+                return;
             _shapes.Add(shape);
             shape.ZOrder = _shapes.Count;
             OnDocumentChanged(EventArgs.Empty);
@@ -38,20 +38,32 @@ namespace CloudNativeDesigner.Core
 
         public void RemoveShape(ShapeBase shape)
         {
-            if (shape == null) return;
+            if (shape == null)
+                return;
 
-            var toRemove = _connections.Where(c => c.FromShape == shape || c.ToShape == shape).ToList();
-            foreach (var conn in toRemove)
+            List<Connection> toRemove = new List<Connection>();
+            foreach (Connection conn in _connections)
+            {
+                if (conn.FromShape == shape || conn.ToShape == shape)
+                    toRemove.Add(conn);
+            }
+            foreach (Connection conn in toRemove)
                 _connections.Remove(conn);
 
-            if (shape.Parent is CloudNativeDesigner.Shapes.ContainerShape container)
+            if (shape.Parent is CloudNativeDesigner.Shapes.ContainerShape)
             {
+                CloudNativeDesigner.Shapes.ContainerShape container = (CloudNativeDesigner.Shapes.ContainerShape)shape.Parent;
                 container.RemoveChild(shape);
             }
 
-            foreach (var child in shape is CloudNativeDesigner.Shapes.ContainerShape c ? c.Children.ToList() : new List<ShapeBase>())
+            if (shape is CloudNativeDesigner.Shapes.ContainerShape)
             {
-                child.Parent = null;
+                CloudNativeDesigner.Shapes.ContainerShape c = (CloudNativeDesigner.Shapes.ContainerShape)shape;
+                List<ShapeBase> childrenCopy = new List<ShapeBase>(c.Children);
+                foreach (ShapeBase child in childrenCopy)
+                {
+                    child.Parent = null;
+                }
             }
 
             _shapes.Remove(shape);
@@ -60,40 +72,60 @@ namespace CloudNativeDesigner.Core
 
         public void AddConnection(Connection conn)
         {
-            if (conn == null) return;
+            if (conn == null)
+                return;
             _connections.Add(conn);
             OnDocumentChanged(EventArgs.Empty);
         }
 
         public void RemoveConnection(Connection conn)
         {
-            if (conn == null) return;
+            if (conn == null)
+                return;
             _connections.Remove(conn);
             OnDocumentChanged(EventArgs.Empty);
         }
 
         public void ClearSelection()
         {
-            foreach (var shape in _shapes)
+            foreach (ShapeBase shape in _shapes)
                 shape.Selected = false;
-            foreach (var conn in _connections)
+            foreach (Connection conn in _connections)
                 conn.Selected = false;
         }
 
         public List<ShapeBase> GetSelectedShapes()
         {
-            return _shapes.Where(s => s.Selected).ToList();
+            List<ShapeBase> result = new List<ShapeBase>();
+            foreach (ShapeBase s in _shapes)
+            {
+                if (s.Selected)
+                    result.Add(s);
+            }
+            return result;
         }
 
         public List<Connection> GetSelectedConnections()
         {
-            return _connections.Where(c => c.Selected).ToList();
+            List<Connection> result = new List<Connection>();
+            foreach (Connection c in _connections)
+            {
+                if (c.Selected)
+                    result.Add(c);
+            }
+            return result;
         }
 
         public void BringToFront(ShapeBase shape)
         {
-            if (shape == null || !_shapes.Contains(shape)) return;
-            int maxZ = _shapes.Count > 0 ? _shapes.Max(s => s.ZOrder) : 0;
+            if (shape == null || !_shapes.Contains(shape))
+                return;
+            int maxZ = 0;
+            foreach (ShapeBase s in _shapes)
+            {
+                if (s.ZOrder > maxZ)
+                    maxZ = s.ZOrder;
+            }
             shape.ZOrder = maxZ + 1;
             SortByZOrder();
             OnDocumentChanged(EventArgs.Empty);
@@ -101,8 +133,14 @@ namespace CloudNativeDesigner.Core
 
         public void SendToBack(ShapeBase shape)
         {
-            if (shape == null || !_shapes.Contains(shape)) return;
-            int minZ = _shapes.Count > 0 ? _shapes.Min(s => s.ZOrder) : 0;
+            if (shape == null || !_shapes.Contains(shape))
+                return;
+            int minZ = 0;
+            foreach (ShapeBase s in _shapes)
+            {
+                if (s.ZOrder < minZ)
+                    minZ = s.ZOrder;
+            }
             shape.ZOrder = minZ - 1;
             SortByZOrder();
             OnDocumentChanged(EventArgs.Empty);
@@ -110,7 +148,15 @@ namespace CloudNativeDesigner.Core
 
         private void SortByZOrder()
         {
-            _shapes.Sort((a, b) => a.ZOrder.CompareTo(b.ZOrder));
+            _shapes.Sort(new ZOrderComparer());
+        }
+
+        private class ZOrderComparer : IComparer<ShapeBase>
+        {
+            public int Compare(ShapeBase a, ShapeBase b)
+            {
+                return a.ZOrder.CompareTo(b.ZOrder);
+            }
         }
 
         public ShapeBase HitTestShape(PointF pt)
@@ -125,7 +171,7 @@ namespace CloudNativeDesigner.Core
 
         public Connection HitTestConnection(PointF pt, float tolerance)
         {
-            foreach (var conn in _connections)
+            foreach (Connection conn in _connections)
             {
                 if (conn.HitTest(pt, tolerance))
                     return conn;
@@ -135,7 +181,13 @@ namespace CloudNativeDesigner.Core
 
         public List<ShapeBase> GetShapesInRect(RectangleF rect)
         {
-            return _shapes.Where(s => s.HitTest(rect)).ToList();
+            List<ShapeBase> result = new List<ShapeBase>();
+            foreach (ShapeBase s in _shapes)
+            {
+                if (s.HitTest(rect))
+                    result.Add(s);
+            }
+            return result;
         }
 
         public void Clear()
@@ -146,9 +198,11 @@ namespace CloudNativeDesigner.Core
         }
 
         public event EventHandler DocumentChanged;
+
         protected void OnDocumentChanged(EventArgs e)
         {
-            DocumentChanged?.Invoke(this, e);
+            if (DocumentChanged != null)
+                DocumentChanged(this, e);
         }
     }
 }

@@ -1,18 +1,45 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using CloudNativeDesigner.Core;
 using CloudNativeDesigner.Shapes;
 
 namespace CloudNativeDesigner.Controls
 {
+    public delegate ShapeBase CreateShapeHandler();
+
     public class ToolboxItem
     {
-        public string Name { get; set; }
-        public string Category { get; set; }
-        public Bitmap Icon { get; set; }
-        public Func<ShapeBase> CreateShape { get; set; }
+        private string _name;
+        private string _category;
+        private Bitmap _icon;
+        private CreateShapeHandler _createShape;
+
+        public string Name
+        {
+            get { return _name; }
+            set { _name = value; }
+        }
+
+        public string Category
+        {
+            get { return _category; }
+            set { _category = value; }
+        }
+
+        public Bitmap Icon
+        {
+            get { return _icon; }
+            set { _icon = value; }
+        }
+
+        public CreateShapeHandler CreateShape
+        {
+            get { return _createShape; }
+            set { _createShape = value; }
+        }
     }
 
     public class ToolboxPanel : Panel
@@ -35,39 +62,42 @@ namespace CloudNativeDesigner.Controls
 
         private void InitializeDefaultItems()
         {
-            AddItem(new ToolboxItem
-            {
-                Name = "矩形",
-                Category = "基本图形",
-                CreateShape = () => new RectangleShape()
-            });
+            ToolboxItem rectItem = new ToolboxItem();
+            rectItem.Name = "矩形";
+            rectItem.Category = "基本图形";
+            rectItem.CreateShape = new CreateShapeHandler(CreateRectangle);
+            AddItem(rectItem);
 
-            AddItem(new ToolboxItem
-            {
-                Name = "椭圆",
-                Category = "基本图形",
-                CreateShape = () => new EllipseShape()
-            });
+            ToolboxItem ellipseItem = new ToolboxItem();
+            ellipseItem.Name = "椭圆";
+            ellipseItem.Category = "基本图形";
+            ellipseItem.CreateShape = new CreateShapeHandler(CreateEllipse);
+            AddItem(ellipseItem);
 
-            AddItem(new ToolboxItem
-            {
-                Name = "菱形",
-                Category = "基本图形",
-                CreateShape = () => new DiamondShape()
-            });
+            ToolboxItem diamondItem = new ToolboxItem();
+            diamondItem.Name = "菱形";
+            diamondItem.Category = "基本图形";
+            diamondItem.CreateShape = new CreateShapeHandler(CreateDiamond);
+            AddItem(diamondItem);
 
-            AddItem(new ToolboxItem
-            {
-                Name = "容器",
-                Category = "容器",
-                CreateShape = () => new ContainerShape()
-            });
+            ToolboxItem containerItem = new ToolboxItem();
+            containerItem.Name = "容器";
+            containerItem.Category = "容器";
+            containerItem.CreateShape = new CreateShapeHandler(CreateContainer);
+            AddItem(containerItem);
         }
+
+        private static ShapeBase CreateRectangle() { return new RectangleShape(); }
+        private static ShapeBase CreateEllipse() { return new EllipseShape(); }
+        private static ShapeBase CreateDiamond() { return new DiamondShape(); }
+        private static ShapeBase CreateContainer() { return new ContainerShape(); }
 
         public void AddItem(ToolboxItem item)
         {
-            if (item == null) return;
-            item.Icon = item.Icon ?? CreateDefaultIcon(item);
+            if (item == null)
+                return;
+            if (item.Icon == null)
+                item.Icon = CreateDefaultIcon(item);
             _items.Add(item);
             Invalidate();
         }
@@ -81,20 +111,26 @@ namespace CloudNativeDesigner.Controls
 
         public ToolboxItem SelectedItem { get { return _selectedItem; } }
 
-        public event EventHandler<ToolboxItem> ItemSelected;
+        public event EventHandler ItemSelected;
+
+        protected virtual void OnItemSelected(ToolboxItem item)
+        {
+            if (ItemSelected != null)
+                ItemSelected(this, EventArgs.Empty);
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
 
             Graphics g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             float y = _padding + AutoScrollPosition.Y;
             string currentCategory = null;
 
-            foreach (var item in _items)
+            foreach (ToolboxItem item in _items)
             {
                 if (item.Category != currentCategory)
                 {
@@ -139,11 +175,10 @@ namespace CloudNativeDesigner.Controls
                 using (Font font = new Font("Microsoft YaHei", 9f, FontStyle.Regular))
                 using (Brush brush = new SolidBrush(Color.FromArgb(40, 40, 40)))
                 {
-                    StringFormat sf = new StringFormat
-                    {
-                        Alignment = StringAlignment.Near,
-                        LineAlignment = StringAlignment.Center
-                    };
+                    StringFormat sf = new StringFormat();
+                    sf.Alignment = StringAlignment.Near;
+                    sf.LineAlignment = StringAlignment.Center;
+
                     RectangleF textRect = itemRect;
                     textRect.X += _iconSize + 10;
                     textRect.Width -= _iconSize + 14;
@@ -158,12 +193,13 @@ namespace CloudNativeDesigner.Controls
         {
             base.OnMouseDown(e);
 
-            if (e.Button != MouseButtons.Left) return;
+            if (e.Button != MouseButtons.Left)
+                return;
 
             float y = _padding + AutoScrollPosition.Y;
             string currentCategory = null;
 
-            foreach (var item in _items)
+            foreach (ToolboxItem item in _items)
             {
                 if (item.Category != currentCategory)
                 {
@@ -175,7 +211,7 @@ namespace CloudNativeDesigner.Controls
                 if (itemRect.Contains(e.Location))
                 {
                     _selectedItem = item;
-                    ItemSelected?.Invoke(this, item);
+                    OnItemSelected(item);
                     Invalidate();
                     DoDragDrop(item, DragDropEffects.Copy);
                     return;
@@ -202,7 +238,7 @@ namespace CloudNativeDesigner.Controls
             Bitmap bmp = new Bitmap(_iconSize, _iconSize);
             using (Graphics g = Graphics.FromImage(bmp))
             {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.Clear(Color.Transparent);
 
                 Rectangle rect = new Rectangle(2, 2, _iconSize - 4, _iconSize - 4);
@@ -211,7 +247,7 @@ namespace CloudNativeDesigner.Controls
                 {
                     try
                     {
-                        var shape = item.CreateShape();
+                        ShapeBase shape = item.CreateShape();
                         shape.Bounds = new RectangleF(2, 2, _iconSize - 4, _iconSize - 4);
                         shape.Draw(g, 1.0f);
                     }

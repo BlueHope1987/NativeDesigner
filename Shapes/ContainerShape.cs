@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Linq;
 using CloudNativeDesigner.Core;
 
 namespace CloudNativeDesigner.Shapes
@@ -46,14 +46,22 @@ namespace CloudNativeDesigner.Shapes
         public string HeaderText
         {
             get { return _headerText; }
-            set { _headerText = value ?? ""; NotifyChanged(); }
+            set
+            {
+                if (value == null)
+                    _headerText = "";
+                else
+                    _headerText = value;
+                NotifyChanged();
+            }
         }
 
         public List<ShapeBase> Children { get { return _children; } }
 
         public void AddChild(ShapeBase child)
         {
-            if (child == null || child == this) return;
+            if (child == null || child == this)
+                return;
             if (!_children.Contains(child))
             {
                 _children.Add(child);
@@ -64,7 +72,8 @@ namespace CloudNativeDesigner.Shapes
 
         public void RemoveChild(ShapeBase child)
         {
-            if (child == null) return;
+            if (child == null)
+                return;
             _children.Remove(child);
             child.Parent = null;
             NotifyChanged();
@@ -73,7 +82,7 @@ namespace CloudNativeDesigner.Shapes
         public override void Move(float dx, float dy)
         {
             base.Move(dx, dy);
-            foreach (var child in _children)
+            foreach (ShapeBase child in _children)
             {
                 child.Move(dx, dy);
             }
@@ -81,7 +90,8 @@ namespace CloudNativeDesigner.Shapes
 
         public override bool HitTest(PointF pt)
         {
-            if (!Visible) return false;
+            if (!Visible)
+                return false;
             return Bounds.Contains(pt);
         }
 
@@ -123,7 +133,7 @@ namespace CloudNativeDesigner.Shapes
 
             using (Pen pen = new Pen(Selected ? Color.FromArgb(0, 120, 215) : BorderColor, BorderWidth / scale))
             {
-                g.DrawRoundedRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height, 6f);
+                DrawRoundedRectangle(g, pen, rect.X, rect.Y, rect.Width, rect.Height, 6f);
                 g.DrawLine(pen, rect.X, rect.Y + _headerHeight, rect.Right, rect.Y + _headerHeight);
             }
 
@@ -131,13 +141,25 @@ namespace CloudNativeDesigner.Shapes
 
             GraphicsState state = g.Save();
             g.Clip = new Region(bodyRect);
-            foreach (var child in _children.Where(c => c.Visible).OrderBy(c => c.ZOrder))
-            {
-                child.Draw(g, scale);
-            }
-            g.Restore(state);
 
+            List<ShapeBase> sortedChildren = new List<ShapeBase>(_children);
+            sortedChildren.Sort(new ZOrderComparer());
+            foreach (ShapeBase child in sortedChildren)
+            {
+                if (child.Visible)
+                    child.Draw(g, scale);
+            }
+
+            g.Restore(state);
             DrawSelection(g, scale);
+        }
+
+        private class ZOrderComparer : IComparer<ShapeBase>
+        {
+            public int Compare(ShapeBase a, ShapeBase b)
+            {
+                return a.ZOrder.CompareTo(b.ZOrder);
+            }
         }
 
         private void DrawHeaderText(Graphics g, float scale)
@@ -145,12 +167,11 @@ namespace CloudNativeDesigner.Shapes
             using (Font font = new Font("Microsoft YaHei", 10f / scale, FontStyle.Bold))
             using (Brush brush = new SolidBrush(Color.White))
             {
-                StringFormat sf = new StringFormat
-                {
-                    Alignment = StringAlignment.Near,
-                    LineAlignment = StringAlignment.Center,
-                    Trimming = StringTrimming.EllipsisCharacter
-                };
+                StringFormat sf = new StringFormat();
+                sf.Alignment = StringAlignment.Near;
+                sf.LineAlignment = StringAlignment.Center;
+                sf.Trimming = StringTrimming.EllipsisCharacter;
+
                 RectangleF textRect = Bounds;
                 textRect.Height = _headerHeight;
                 textRect.Inflate(-8 / scale, 0);
@@ -161,7 +182,12 @@ namespace CloudNativeDesigner.Shapes
         private GraphicsPath CreateRoundedRect(RectangleF rect, float radius)
         {
             GraphicsPath path = new GraphicsPath();
-            float r = Math.Min(radius, Math.Min(rect.Width / 2f, rect.Height / 2f));
+            float r = radius;
+            if (r > rect.Width / 2f)
+                r = rect.Width / 2f;
+            if (r > rect.Height / 2f)
+                r = rect.Height / 2f;
+
             path.AddArc(rect.X, rect.Y, r * 2, r * 2, 180, 90);
             path.AddArc(rect.Right - r * 2, rect.Y, r * 2, r * 2, 270, 90);
             path.AddArc(rect.Right - r * 2, rect.Bottom - r * 2, r * 2, r * 2, 0, 90);
@@ -170,32 +196,16 @@ namespace CloudNativeDesigner.Shapes
             return path;
         }
 
-        public override ShapeBase Clone()
-        {
-            return new ContainerShape
-            {
-                Id = Guid.NewGuid(),
-                Name = this.Name,
-                Description = this.Description,
-                Bounds = this.Bounds,
-                FillColor = this.FillColor,
-                BorderColor = this.BorderColor,
-                TextColor = this.TextColor,
-                BorderWidth = this.BorderWidth,
-                HeaderHeight = this.HeaderHeight,
-                HeaderColor = this.HeaderColor,
-                HeaderText = this.HeaderText
-            };
-        }
-    }
-
-    public static class GraphicsExtensions
-    {
-        public static void DrawRoundedRectangle(this Graphics g, Pen pen, float x, float y, float width, float height, float radius)
+        private void DrawRoundedRectangle(Graphics g, Pen pen, float x, float y, float width, float height, float radius)
         {
             using (GraphicsPath path = new GraphicsPath())
             {
-                float r = Math.Min(radius, Math.Min(width / 2f, height / 2f));
+                float r = radius;
+                if (r > width / 2f)
+                    r = width / 2f;
+                if (r > height / 2f)
+                    r = height / 2f;
+
                 path.AddArc(x, y, r * 2, r * 2, 180, 90);
                 path.AddArc(x + width - r * 2, y, r * 2, r * 2, 270, 90);
                 path.AddArc(x + width - r * 2, y + height - r * 2, r * 2, r * 2, 0, 90);
@@ -203,6 +213,23 @@ namespace CloudNativeDesigner.Shapes
                 path.CloseFigure();
                 g.DrawPath(pen, path);
             }
+        }
+
+        public override ShapeBase Clone()
+        {
+            ContainerShape clone = new ContainerShape();
+            clone.Id = Guid.NewGuid();
+            clone.Name = this.Name;
+            clone.Description = this.Description;
+            clone.Bounds = this.Bounds;
+            clone.FillColor = this.FillColor;
+            clone.BorderColor = this.BorderColor;
+            clone.TextColor = this.TextColor;
+            clone.BorderWidth = this.BorderWidth;
+            clone.HeaderHeight = this.HeaderHeight;
+            clone.HeaderColor = this.HeaderColor;
+            clone.HeaderText = this.HeaderText;
+            return clone;
         }
     }
 }

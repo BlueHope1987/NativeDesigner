@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Linq;
 
 namespace CloudNativeDesigner.Core
 {
@@ -31,7 +30,11 @@ namespace CloudNativeDesigner.Core
         private string _label = "";
 
         [Browsable(false)]
-        public Guid Id { get { return _id; } set { _id = value; } }
+        public Guid Id
+        {
+            get { return _id; }
+            set { _id = value; }
+        }
 
         [Browsable(false)]
         public ShapeBase FromShape
@@ -106,7 +109,14 @@ namespace CloudNativeDesigner.Core
         public string Label
         {
             get { return _label; }
-            set { _label = value ?? ""; NotifyChanged(); }
+            set
+            {
+                if (value == null)
+                    _label = "";
+                else
+                    _label = value;
+                NotifyChanged();
+            }
         }
 
         [Browsable(false)]
@@ -126,22 +136,29 @@ namespace CloudNativeDesigner.Core
         public void UpdateEndpoints()
         {
             if (_fromShape != null)
-                _fromPoint = _fromShape.GetNearestConnectionPoint(_toShape != null ? _toShape.Center : _toPoint);
+            {
+                PointF target = _toShape != null ? _toShape.Center : _toPoint;
+                _fromPoint = _fromShape.GetNearestConnectionPoint(target);
+            }
             if (_toShape != null)
-                _toPoint = _toShape.GetNearestConnectionPoint(_fromShape != null ? _fromShape.Center : _fromPoint);
+            {
+                PointF source = _fromShape != null ? _fromShape.Center : _fromPoint;
+                _toPoint = _toShape.GetNearestConnectionPoint(source);
+            }
         }
 
         public void Draw(Graphics g, float scale)
         {
             UpdateEndpoints();
 
-            using (Pen pen = new Pen(_selected ? Color.FromArgb(0, 120, 215) : _lineColor, _lineWidth / scale))
+            PointF[] points = GetDrawPoints();
+
+            Color penColor = _selected ? Color.FromArgb(0, 120, 215) : _lineColor;
+            using (Pen pen = new Pen(penColor, _lineWidth / scale))
             {
                 pen.DashStyle = _dashStyle;
                 pen.StartCap = LineCap.Round;
                 pen.EndCap = LineCap.Round;
-
-                PointF[] points = GetDrawPoints();
 
                 if (points.Length >= 2)
                 {
@@ -169,7 +186,7 @@ namespace CloudNativeDesigner.Core
                 }
             }
 
-            if (!string.IsNullOrEmpty(_label) && points.Length >= 2)
+            if (_label.Length > 0 && points.Length >= 2)
             {
                 PointF mid = GetLabelPosition(points);
                 using (Font font = new Font("Microsoft YaHei", 9f / scale))
@@ -229,7 +246,8 @@ namespace CloudNativeDesigner.Core
                 to.X - arrowLength * (float)Math.Cos(angle + arrowAngle),
                 to.Y - arrowLength * (float)Math.Sin(angle + arrowAngle));
 
-            using (Brush brush = new SolidBrush(_selected ? Color.FromArgb(0, 120, 215) : _lineColor))
+            Color arrowColor = _selected ? Color.FromArgb(0, 120, 215) : _lineColor;
+            using (Brush brush = new SolidBrush(arrowColor))
             {
                 g.FillPolygon(brush, new PointF[] { to, p1, p2 });
             }
@@ -238,7 +256,8 @@ namespace CloudNativeDesigner.Core
         public bool HitTest(PointF pt, float tolerance)
         {
             PointF[] points = GetDrawPoints();
-            if (points.Length < 2) return false;
+            if (points.Length < 2)
+                return false;
 
             for (int i = 0; i < points.Length - 1; i++)
             {
@@ -254,7 +273,8 @@ namespace CloudNativeDesigner.Core
             float dy = b.Y - a.Y;
             float len2 = dx * dx + dy * dy;
 
-            if (len2 < 0.0001f) return Distance(p, a);
+            if (len2 < 0.0001f)
+                return Distance(p, a);
 
             float t = Math.Max(0, Math.Min(1, ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / len2));
             float projX = a.X + t * dx;
@@ -268,9 +288,11 @@ namespace CloudNativeDesigner.Core
         }
 
         public event EventHandler Changed;
+
         private void NotifyChanged()
         {
-            Changed?.Invoke(this, EventArgs.Empty);
+            if (Changed != null)
+                Changed(this, EventArgs.Empty);
         }
     }
 }

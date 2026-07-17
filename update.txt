@@ -12,4 +12,13 @@
 4.结构清晰，架构匀称，符合软件工程至优实践。
 以这个demo，期待你的首次表现，非常感谢！
 
+
+>
+非常感谢！我注意到这个项目用的.net4.8，最低需要VS2019才能编译运行。您是否可以修订等价代码，使得运行平台可基于.Net2.0版本，以此获取最大向后兼容，非常感谢！
+
+
+>
+非常感谢！您的这个版本中有大量的Func委托语法是.net2.0所不兼容的；在ToolboxPanel.cs文件中为了保证图形可访问增添了using CloudNativeDesigner.Shapes和using System.Drawing.Drawing2D引用；在Connection.cs文件中为了保证声明可及将Draw方法下的PointF[] points = GetDrawPoints();上调至UpdateEndpoints();后面；在ContainerShape.cs文件中增添了using System.ComponentModel;方法；其他请您自行排查代码可用性等问题，然后让我们一起再尝试一下。
+
+
 >>>>>>>>>>>>>>>>>>>

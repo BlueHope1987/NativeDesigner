@@ -2,7 +2,6 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Windows.Forms;
 
 namespace CloudNativeDesigner.Core
 {
@@ -25,7 +24,11 @@ namespace CloudNativeDesigner.Core
         private bool _visible = true;
 
         [Browsable(false)]
-        public Guid Id { get { return _id; } set { _id = value; } }
+        public Guid Id
+        {
+            get { return _id; }
+            set { _id = value; }
+        }
 
         [Category("外观")]
         [DisplayName("名称")]
@@ -33,7 +36,14 @@ namespace CloudNativeDesigner.Core
         public string Name
         {
             get { return _name; }
-            set { _name = value ?? ""; NotifyChanged(); }
+            set
+            {
+                if (value == null)
+                    _name = "";
+                else
+                    _name = value;
+                NotifyChanged();
+            }
         }
 
         [Category("外观")]
@@ -42,7 +52,14 @@ namespace CloudNativeDesigner.Core
         public string Description
         {
             get { return _description; }
-            set { _description = value ?? ""; NotifyChanged(); }
+            set
+            {
+                if (value == null)
+                    _description = "";
+                else
+                    _description = value;
+                NotifyChanged();
+            }
         }
 
         [Browsable(false)]
@@ -73,7 +90,14 @@ namespace CloudNativeDesigner.Core
         public float Width
         {
             get { return _bounds.Width; }
-            set { if (value > 10) { _bounds.Width = value; NotifyChanged(); } }
+            set
+            {
+                if (value > 10)
+                {
+                    _bounds.Width = value;
+                    NotifyChanged();
+                }
+            }
         }
 
         [Category("布局")]
@@ -81,7 +105,14 @@ namespace CloudNativeDesigner.Core
         public float Height
         {
             get { return _bounds.Height; }
-            set { if (value > 10) { _bounds.Height = value; NotifyChanged(); } }
+            set
+            {
+                if (value > 10)
+                {
+                    _bounds.Height = value;
+                    NotifyChanged();
+                }
+            }
         }
 
         [Category("外观")]
@@ -173,13 +204,15 @@ namespace CloudNativeDesigner.Core
 
         public virtual bool HitTest(PointF pt)
         {
-            if (!Visible) return false;
+            if (!Visible)
+                return false;
             return _bounds.Contains(pt);
         }
 
         public virtual bool HitTest(RectangleF rect)
         {
-            if (!Visible) return false;
+            if (!Visible)
+                return false;
             return _bounds.IntersectsWith(rect);
         }
 
@@ -211,20 +244,24 @@ namespace CloudNativeDesigner.Core
         public abstract ShapeBase Clone();
 
         public event EventHandler Changed;
+
         protected void NotifyChanged()
         {
-            Changed?.Invoke(this, EventArgs.Empty);
+            if (Changed != null)
+                Changed(this, EventArgs.Empty);
         }
 
         protected virtual void DrawSelection(Graphics g, float scale)
         {
-            if (!Selected && !Hovered) return;
+            if (!Selected && !Hovered)
+                return;
 
             RectangleF rect = _bounds;
             float offset = 4f / scale;
             rect.Inflate(offset, offset);
 
-            using (Pen pen = new Pen(Selected ? Color.FromArgb(0, 120, 215) : Color.Gray))
+            Color penColor = Selected ? Color.FromArgb(0, 120, 215) : Color.Gray;
+            using (Pen pen = new Pen(penColor))
             {
                 pen.DashStyle = DashStyle.Dash;
                 pen.Width = 1f / scale;

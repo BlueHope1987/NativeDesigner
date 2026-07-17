@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
 using CloudNativeDesigner.Config;
 using CloudNativeDesigner.Core;
@@ -54,8 +53,18 @@ namespace CloudNativeDesigner.Controls
             _bufferContext = BufferedGraphicsManager.Current;
             _bufferContext.MaximumBuffer = new Size(4096, 4096);
 
-            GlobalConfig.Instance.Changed += (s, e) => Invalidate();
-            _document.DocumentChanged += (s, e) => Invalidate();
+            GlobalConfig.Instance.Changed += new EventHandler(OnGlobalConfigChanged);
+            _document.DocumentChanged += new EventHandler(OnDocumentChanged);
+        }
+
+        private void OnGlobalConfigChanged(object sender, EventArgs e)
+        {
+            Invalidate();
+        }
+
+        private void OnDocumentChanged(object sender, EventArgs e)
+        {
+            Invalidate();
         }
 
         public DrawingDocument Document { get { return _document; } }
@@ -78,7 +87,11 @@ namespace CloudNativeDesigner.Controls
             get { return _zoom; }
             set
             {
-                _zoom = Math.Max(0.1f, Math.Min(5.0f, value));
+                _zoom = value;
+                if (_zoom < 0.1f)
+                    _zoom = 0.1f;
+                if (_zoom > 5.0f)
+                    _zoom = 5.0f;
                 Invalidate();
             }
         }
@@ -92,13 +105,26 @@ namespace CloudNativeDesigner.Controls
         public event EventHandler SelectionChanged;
         public event EventHandler DocumentModified;
 
+        protected virtual void OnSelectionChanged()
+        {
+            if (SelectionChanged != null)
+                SelectionChanged(this, EventArgs.Empty);
+        }
+
+        protected virtual void OnDocumentModified()
+        {
+            if (DocumentModified != null)
+                DocumentModified(this, EventArgs.Empty);
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
 
             if (_bufferedGraphics == null || _bufferSize != ClientSize)
             {
-                _bufferedGraphics?.Dispose();
+                if (_bufferedGraphics != null)
+                    _bufferedGraphics.Dispose();
                 _bufferedGraphics = _bufferContext.Allocate(e.Graphics, ClientRectangle);
                 _bufferSize = ClientSize;
             }
@@ -127,7 +153,8 @@ namespace CloudNativeDesigner.Controls
 
         private void DrawGrid(Graphics g)
         {
-            if (!GlobalConfig.Instance.ShowGrid) return;
+            if (!GlobalConfig.Instance.ShowGrid)
+                return;
 
             float gridSize = GlobalConfig.Instance.GridSize;
             float left = (-_offset.X) / _zoom;
@@ -155,9 +182,10 @@ namespace CloudNativeDesigner.Controls
 
         private void DrawShapes(Graphics g)
         {
-            var shapes = _document.Shapes.OrderBy(s => s.ZOrder).ToList();
-            foreach (var shape in shapes)
+            List<ShapeBase> shapes = _document.Shapes;
+            for (int i = 0; i < shapes.Count; i++)
             {
+                ShapeBase shape = shapes[i];
                 if (shape.Visible && shape.Parent == null)
                     shape.Draw(g, _zoom);
             }
@@ -165,15 +193,17 @@ namespace CloudNativeDesigner.Controls
 
         private void DrawConnections(Graphics g)
         {
-            foreach (var conn in _document.Connections)
+            List<Connection> connections = _document.Connections;
+            for (int i = 0; i < connections.Count; i++)
             {
-                conn.Draw(g, _zoom);
+                connections[i].Draw(g, _zoom);
             }
         }
 
         private void DrawRubberBand(Graphics g)
         {
-            if (!_isConnecting) return;
+            if (!_isConnecting)
+                return;
 
             using (Pen pen = new Pen(Color.FromArgb(0, 120, 215), 1.5f / _zoom))
             {
@@ -184,7 +214,8 @@ namespace CloudNativeDesigner.Controls
 
         private void DrawSelectionRect(Graphics g)
         {
-            if (!_isSelecting) return;
+            if (!_isSelecting)
+                return;
 
             using (Brush brush = new SolidBrush(Color.FromArgb(30, 0, 120, 215)))
             using (Pen pen = new Pen(Color.FromArgb(0, 120, 215), 1f / _zoom))
@@ -209,7 +240,8 @@ namespace CloudNativeDesigner.Controls
                 return;
             }
 
-            if (e.Button != MouseButtons.Left) return;
+            if (e.Button != MouseButtons.Left)
+                return;
 
             if (_currentTool == CanvasTool.Connect)
             {
@@ -217,8 +249,8 @@ namespace CloudNativeDesigner.Controls
                 return;
             }
 
-            var shape = _document.HitTestShape(worldPos);
-            var conn = _document.HitTestConnection(worldPos, 6f / _zoom);
+            ShapeBase shape = _document.HitTestShape(worldPos);
+            Connection conn = _document.HitTestConnection(worldPos, 6f / _zoom);
 
             if (shape != null)
             {
@@ -231,15 +263,20 @@ namespace CloudNativeDesigner.Controls
                 _dragStart = worldPos;
 
                 _draggingShapes = _document.GetSelectedShapes();
-                _dragOriginalPositions = _draggingShapes.Select(s => new PointF(s.X, s.Y)).ToArray();
+                _dragOriginalPositions = new PointF[_draggingShapes.Count];
+                for (int i = 0; i < _draggingShapes.Count; i++)
+                {
+                    ShapeBase s = _draggingShapes[i];
+                    _dragOriginalPositions[i] = new PointF(s.X, s.Y);
+                }
 
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
+                OnSelectionChanged();
             }
             else if (conn != null)
             {
                 _document.ClearSelection();
                 conn.Selected = true;
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
+                OnSelectionChanged();
             }
             else
             {
@@ -247,7 +284,7 @@ namespace CloudNativeDesigner.Controls
                 _isSelecting = true;
                 _dragStart = worldPos;
                 _selectionRect = new RectangleF(worldPos.X, worldPos.Y, 0, 0);
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
+                OnSelectionChanged();
             }
 
             Invalidate();
@@ -260,8 +297,6 @@ namespace CloudNativeDesigner.Controls
 
             if (e.Button == MouseButtons.Middle)
             {
-                float dx = (e.X - _lastMousePos.X) / _zoom;
-                float dy = (e.Y - _lastMousePos.Y) / _zoom;
                 _offset.X += e.X - _lastMousePos.X;
                 _offset.Y += e.Y - _lastMousePos.Y;
                 _lastMousePos = new PointF(e.X, e.Y);
@@ -276,7 +311,7 @@ namespace CloudNativeDesigner.Controls
 
                 for (int i = 0; i < _draggingShapes.Count; i++)
                 {
-                    var s = _draggingShapes[i];
+                    ShapeBase s = _draggingShapes[i];
                     float newX = _dragOriginalPositions[i].X + dx;
                     float newY = _dragOriginalPositions[i].Y + dy;
 
@@ -291,7 +326,7 @@ namespace CloudNativeDesigner.Controls
                     s.Y = newY;
                 }
 
-                DocumentModified?.Invoke(this, EventArgs.Empty);
+                OnDocumentModified();
                 Invalidate();
             }
             else if (_isConnecting)
@@ -310,17 +345,27 @@ namespace CloudNativeDesigner.Controls
             }
             else
             {
-                var shape = _document.HitTestShape(worldPos);
-                var conn = _document.HitTestConnection(worldPos, 6f / _zoom);
+                ShapeBase shape = _document.HitTestShape(worldPos);
+                Connection conn = _document.HitTestConnection(worldPos, 6f / _zoom);
 
-                if (shape != _hoveredShape || conn != _hoveredConnection)
+                bool needInvalidate = false;
+                if (shape != _hoveredShape)
                 {
-                    if (_hoveredShape != null) _hoveredShape.Hovered = false;
+                    if (_hoveredShape != null)
+                        _hoveredShape.Hovered = false;
                     _hoveredShape = shape;
-                    if (_hoveredShape != null) _hoveredShape.Hovered = true;
-                    _hoveredConnection = conn;
-                    Invalidate();
+                    if (_hoveredShape != null)
+                        _hoveredShape.Hovered = true;
+                    needInvalidate = true;
                 }
+                if (conn != _hoveredConnection)
+                {
+                    _hoveredConnection = conn;
+                    needInvalidate = true;
+                }
+
+                if (needInvalidate)
+                    Invalidate();
 
                 if (_currentTool == CanvasTool.Connect)
                     Cursor = (shape != null) ? Cursors.Cross : Cursors.Default;
@@ -339,7 +384,8 @@ namespace CloudNativeDesigner.Controls
                 return;
             }
 
-            if (e.Button != MouseButtons.Left) return;
+            if (e.Button != MouseButtons.Left)
+                return;
 
             if (_isDragging)
             {
@@ -358,11 +404,11 @@ namespace CloudNativeDesigner.Controls
             if (_isSelecting)
             {
                 _isSelecting = false;
-                var shapes = _document.GetShapesInRect(_selectionRect);
-                foreach (var s in shapes)
+                List<ShapeBase> shapes = _document.GetShapesInRect(_selectionRect);
+                foreach (ShapeBase s in shapes)
                     s.Selected = true;
                 if (shapes.Count > 0)
-                    SelectionChanged?.Invoke(this, EventArgs.Empty);
+                    OnSelectionChanged();
                 Invalidate();
             }
         }
@@ -396,15 +442,17 @@ namespace CloudNativeDesigner.Controls
         {
             base.OnDragDrop(e);
 
-            if (!e.Data.GetDataPresent(typeof(ToolboxItem))) return;
+            if (!e.Data.GetDataPresent(typeof(ToolboxItem)))
+                return;
 
-            var item = e.Data.GetData(typeof(ToolboxItem)) as ToolboxItem;
-            if (item?.CreateShape == null) return;
+            ToolboxItem item = e.Data.GetData(typeof(ToolboxItem)) as ToolboxItem;
+            if (item == null || item.CreateShape == null)
+                return;
 
             Point clientPt = PointToClient(new Point(e.X, e.Y));
             PointF worldPos = ScreenToWorld(clientPt);
 
-            var shape = item.CreateShape();
+            ShapeBase shape = item.CreateShape();
             shape.X = worldPos.X - shape.Width / 2f;
             shape.Y = worldPos.Y - shape.Height / 2f;
 
@@ -417,18 +465,23 @@ namespace CloudNativeDesigner.Controls
 
             _document.AddShape(shape);
 
-            var container = _document.Shapes
-                .OfType<CloudNativeDesigner.Shapes.ContainerShape>()
-                .FirstOrDefault(c => c.HitTest(worldPos) && c != shape);
-            if (container != null)
+            foreach (ShapeBase s in _document.Shapes)
             {
-                container.AddChild(shape);
+                if (s != shape && s is ContainerShape)
+                {
+                    ContainerShape container = (ContainerShape)s;
+                    if (container.HitTest(worldPos))
+                    {
+                        container.AddChild(shape);
+                        break;
+                    }
+                }
             }
 
             _document.ClearSelection();
             shape.Selected = true;
-            SelectionChanged?.Invoke(this, EventArgs.Empty);
-            DocumentModified?.Invoke(this, EventArgs.Empty);
+            OnSelectionChanged();
+            OnDocumentModified();
             Invalidate();
         }
 
@@ -447,21 +500,21 @@ namespace CloudNativeDesigner.Controls
                 _isDragging = false;
                 _isSelecting = false;
                 CurrentTool = CanvasTool.Select;
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
+                OnSelectionChanged();
                 Invalidate();
             }
-            else if ((e.Control || e.KeyCode == Keys.ControlKey) && e.KeyCode == Keys.A)
+            else if (e.Control && e.KeyCode == Keys.A)
             {
-                foreach (var s in _document.Shapes)
+                foreach (ShapeBase s in _document.Shapes)
                     s.Selected = true;
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
+                OnSelectionChanged();
                 Invalidate();
             }
         }
 
         private void StartConnection(PointF worldPos)
         {
-            var shape = _document.HitTestShape(worldPos);
+            ShapeBase shape = _document.HitTestShape(worldPos);
             if (shape != null)
             {
                 _connectStartShape = shape;
@@ -474,20 +527,18 @@ namespace CloudNativeDesigner.Controls
         private void EndConnection(PointF worldPos)
         {
             _isConnecting = false;
-            var endShape = _document.HitTestShape(worldPos);
+            ShapeBase endShape = _document.HitTestShape(worldPos);
 
             if (_connectStartShape != null && endShape != null && _connectStartShape != endShape)
             {
-                var conn = new Connection
-                {
-                    FromShape = _connectStartShape,
-                    ToShape = endShape,
-                    Mode = GlobalConfig.Instance.DefaultConnectionMode,
-                    FromPoint = _connectStartShape.GetNearestConnectionPoint(endShape.Center),
-                    ToPoint = endShape.GetNearestConnectionPoint(_connectStartShape.Center)
-                };
+                Connection conn = new Connection();
+                conn.FromShape = _connectStartShape;
+                conn.ToShape = endShape;
+                conn.Mode = GlobalConfig.Instance.DefaultConnectionMode;
+                conn.FromPoint = _connectStartShape.GetNearestConnectionPoint(endShape.Center);
+                conn.ToPoint = endShape.GetNearestConnectionPoint(_connectStartShape.Center);
                 _document.AddConnection(conn);
-                DocumentModified?.Invoke(this, EventArgs.Empty);
+                OnDocumentModified();
             }
 
             _connectStartShape = null;
@@ -496,37 +547,44 @@ namespace CloudNativeDesigner.Controls
 
         public void DeleteSelected()
         {
-            var shapes = _document.GetSelectedShapes().ToList();
-            var conns = _document.GetSelectedConnections().ToList();
+            List<ShapeBase> shapes = _document.GetSelectedShapes();
+            List<Connection> conns = _document.GetSelectedConnections();
 
-            foreach (var c in conns)
+            foreach (Connection c in conns)
                 _document.RemoveConnection(c);
-            foreach (var s in shapes)
+            foreach (ShapeBase s in shapes)
                 _document.RemoveShape(s);
 
-            SelectionChanged?.Invoke(this, EventArgs.Empty);
-            DocumentModified?.Invoke(this, EventArgs.Empty);
+            OnSelectionChanged();
+            OnDocumentModified();
             Invalidate();
         }
 
         public void BringToFront()
         {
-            foreach (var s in _document.GetSelectedShapes())
+            List<ShapeBase> shapes = _document.GetSelectedShapes();
+            foreach (ShapeBase s in shapes)
                 _document.BringToFront(s);
             Invalidate();
         }
 
         public void SendToBack()
         {
-            foreach (var s in _document.GetSelectedShapes())
+            List<ShapeBase> shapes = _document.GetSelectedShapes();
+            foreach (ShapeBase s in shapes)
                 _document.SendToBack(s);
             Invalidate();
         }
 
-        public PointF ScreenToWorld(Point screenPt, float? zoomOverride = null)
+        public PointF ScreenToWorld(Point screenPt, float? zoomOverride)
         {
-            float z = zoomOverride ?? _zoom;
+            float z = zoomOverride.HasValue ? zoomOverride.Value : _zoom;
             return new PointF((screenPt.X - _offset.X) / z, (screenPt.Y - _offset.Y) / z);
+        }
+
+        public PointF ScreenToWorld(Point screenPt)
+        {
+            return new PointF((screenPt.X - _offset.X) / _zoom, (screenPt.Y - _offset.Y) / _zoom);
         }
 
         public Point WorldToScreen(PointF worldPt)
@@ -538,8 +596,10 @@ namespace CloudNativeDesigner.Controls
         {
             if (disposing)
             {
-                _bufferedGraphics?.Dispose();
-                _bufferContext?.Dispose();
+                if (_bufferedGraphics != null)
+                    _bufferedGraphics.Dispose();
+                if (_bufferContext != null)
+                    _bufferContext.Dispose();
             }
             base.Dispose(disposing);
         }

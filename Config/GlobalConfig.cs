@@ -30,7 +30,7 @@ namespace CloudNativeDesigner.Config
         public ConnectionMode DefaultConnectionMode
         {
             get { return _defaultConnectionMode; }
-            set { _defaultConnectionMode = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _defaultConnectionMode = value; NotifyChanged(); }
         }
 
         [Category("连线")]
@@ -38,7 +38,7 @@ namespace CloudNativeDesigner.Config
         public bool AllowConnectionIntersection
         {
             get { return _allowConnectionIntersection; }
-            set { _allowConnectionIntersection = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _allowConnectionIntersection = value; NotifyChanged(); }
         }
 
         [Category("连线")]
@@ -46,7 +46,7 @@ namespace CloudNativeDesigner.Config
         public bool ShowConnectionArcOnIntersect
         {
             get { return _showConnectionArcOnIntersect; }
-            set { _showConnectionArcOnIntersect = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _showConnectionArcOnIntersect = value; NotifyChanged(); }
         }
 
         [Category("连线")]
@@ -54,7 +54,7 @@ namespace CloudNativeDesigner.Config
         public Color IntersectionArcColor
         {
             get { return _intersectionArcColor; }
-            set { _intersectionArcColor = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _intersectionArcColor = value; NotifyChanged(); }
         }
 
         [Category("连线")]
@@ -62,7 +62,7 @@ namespace CloudNativeDesigner.Config
         public float IntersectionArcRadius
         {
             get { return _intersectionArcRadius; }
-            set { _intersectionArcRadius = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _intersectionArcRadius = value; NotifyChanged(); }
         }
 
         [Category("网格")]
@@ -70,7 +70,7 @@ namespace CloudNativeDesigner.Config
         public bool SnapToGrid
         {
             get { return _snapToGrid; }
-            set { _snapToGrid = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _snapToGrid = value; NotifyChanged(); }
         }
 
         [Category("网格")]
@@ -78,7 +78,7 @@ namespace CloudNativeDesigner.Config
         public float GridSize
         {
             get { return _gridSize; }
-            set { _gridSize = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _gridSize = value; NotifyChanged(); }
         }
 
         [Category("网格")]
@@ -86,7 +86,7 @@ namespace CloudNativeDesigner.Config
         public bool ShowGrid
         {
             get { return _showGrid; }
-            set { _showGrid = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _showGrid = value; NotifyChanged(); }
         }
 
         [Category("网格")]
@@ -94,7 +94,7 @@ namespace CloudNativeDesigner.Config
         public Color GridColor
         {
             get { return _gridColor; }
-            set { _gridColor = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _gridColor = value; NotifyChanged(); }
         }
 
         [Category("画布")]
@@ -102,7 +102,7 @@ namespace CloudNativeDesigner.Config
         public Color CanvasBackground
         {
             get { return _canvasBackground; }
-            set { _canvasBackground = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _canvasBackground = value; NotifyChanged(); }
         }
 
         [Category("画布")]
@@ -110,7 +110,7 @@ namespace CloudNativeDesigner.Config
         public bool AntiAlias
         {
             get { return _antiAlias; }
-            set { _antiAlias = value; Changed?.Invoke(this, EventArgs.Empty); }
+            set { _antiAlias = value; NotifyChanged(); }
         }
 
         [Browsable(false)]
@@ -121,5 +121,11 @@ namespace CloudNativeDesigner.Config
         }
 
         public event EventHandler Changed;
+
+        private void NotifyChanged()
+        {
+            if (Changed != null)
+                Changed(this, EventArgs.Empty);
+        }
     }
 }
