@@ -54,13 +54,10 @@
     <Compile Include="Controls\DrawingCanvas.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Shapes\DiamondShape.cs" />
-    <Compile Include="Shapes\EllipseShape.cs" />
     <Compile Include="Shapes\GenericShape.cs" />
     <Compile Include="Shapes\ContainerShape.cs" />
     <Compile Include="Serialization\DocumentData.cs" />
     <Compile Include="Serialization\XmlShapeSerializer.cs" />
-    <Compile Include="Shapes\RectangleShape.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

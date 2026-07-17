@@ -76,7 +76,30 @@ namespace CloudNativeDesigner.Controls
                     _items.Add(item);
                 }
             }
-            Invalidate();
+
+            int totalHeight = CalculateContentHeight();
+            this.AutoScrollMinSize = new Size(0, totalHeight);
+            this.Invalidate(true);
+            this.Update();
+        }
+
+        private int CalculateContentHeight()
+        {
+            if (_items.Count == 0)
+                return 80;
+
+            int total = _padding;
+            string currentCategory = null;
+            foreach (ToolboxItem item in _items)
+            {
+                if (item.Category != currentCategory)
+                {
+                    currentCategory = item.Category;
+                    total += _padding + 20;
+                }
+                total += _itemHeight + 2;
+            }
+            return total + _padding;
         }
 
         public void AddItem(ToolboxItem item)
@@ -113,6 +136,19 @@ namespace CloudNativeDesigner.Controls
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            if (_items.Count == 0)
+            {
+                using (Font font = new Font("Microsoft YaHei", 9f, FontStyle.Regular))
+                using (Brush brush = new SolidBrush(Color.FromArgb(160, 160, 160)))
+                {
+                    StringFormat sf = new StringFormat();
+                    sf.Alignment = StringAlignment.Center;
+                    sf.LineAlignment = StringAlignment.Center;
+                    g.DrawString("工具箱为空\n请在 InitializeShapeTypes 中注册图形类型", font, brush, this.ClientRectangle, sf);
+                }
+                return;
+            }
 
             float y = _padding + AutoScrollPosition.Y;
             string currentCategory = null;
