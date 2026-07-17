@@ -214,10 +214,10 @@ namespace CloudNativeDesigner.Serialization
                 {
                     StateData stateData = new StateData();
                     stateData.Name = s.Name;
-                    stateData.ArgbFillColor = s.FillColor.ToArgb();
-                    stateData.ArgbBorderColor = s.BorderColor.ToArgb();
-                    stateData.ArgbTextColor = s.TextColor.ToArgb();
-                    stateData.ArgbHeaderColor = s.HeaderColor.ToArgb();
+                    stateData.ArgbFillColor = s.FillColor.Argb;
+                    stateData.ArgbBorderColor = s.BorderColor.Argb;
+                    stateData.ArgbTextColor = s.TextColor.Argb;
+                    stateData.ArgbHeaderColor = s.HeaderColor.Argb;
                     stateData.Priority = s.Priority;
                     sd.States.Add(stateData);
                 }
