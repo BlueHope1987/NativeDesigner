@@ -45,9 +45,11 @@
     <Compile Include="Core\ShapeBase.cs" />
     <Compile Include="Core\Connection.cs" />
     <Compile Include="Core\DrawingDocument.cs" />
+    <Compile Include="Core\GraphicsUtility.cs" />
     <Compile Include="Config\GlobalConfig.cs" />
     <Compile Include="Controls\ToolboxPanel.cs" />
     <Compile Include="Controls\DrawingCanvas.cs" />
+    <Compile Include="Controls\DrawingCanvas.Rendering.cs" />
     <Compile Include="Shapes\GenericShape.cs" />
     <Compile Include="Shapes\ContainerShape.cs" />
     <Compile Include="Serialization\DocumentData.cs" />

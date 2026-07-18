@@ -114,7 +114,7 @@ namespace CloudNativeDesigner.Shapes
             bodyRect.Y += _headerHeight;
             bodyRect.Height -= _headerHeight;
 
-            using (GraphicsPath path = CreateRoundedRect(rect, 6f))
+            using (GraphicsPath path = GraphicsUtility.CreateRoundedRectPath(rect, 6f))
             {
                 using (Brush brush = new SolidBrush(FillColor))
                 {
@@ -136,7 +136,7 @@ namespace CloudNativeDesigner.Shapes
 
             using (Pen pen = new Pen(Selected ? Color.FromArgb(0, 120, 215) : BorderColor, BorderWidth / scale))
             {
-                DrawRoundedRectangle(g, pen, rect.X, rect.Y, rect.Width, rect.Height, 6f);
+                GraphicsUtility.DrawRoundedRectOutline(g, pen, rect, 6f);
                 g.DrawLine(pen, rect.X, rect.Y + _headerHeight, rect.Right, rect.Y + _headerHeight);
             }
 
@@ -179,42 +179,6 @@ namespace CloudNativeDesigner.Shapes
                 textRect.Height = _headerHeight;
                 textRect.Inflate(-8 / scale, 0);
                 g.DrawString(_headerText, font, brush, textRect, sf);
-            }
-        }
-
-        private GraphicsPath CreateRoundedRect(RectangleF rect, float radius)
-        {
-            GraphicsPath path = new GraphicsPath();
-            float r = radius;
-            if (r > rect.Width / 2f)
-                r = rect.Width / 2f;
-            if (r > rect.Height / 2f)
-                r = rect.Height / 2f;
-
-            path.AddArc(rect.X, rect.Y, r * 2, r * 2, 180, 90);
-            path.AddArc(rect.Right - r * 2, rect.Y, r * 2, r * 2, 270, 90);
-            path.AddArc(rect.Right - r * 2, rect.Bottom - r * 2, r * 2, r * 2, 0, 90);
-            path.AddArc(rect.X, rect.Bottom - r * 2, r * 2, r * 2, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
-
-        private void DrawRoundedRectangle(Graphics g, Pen pen, float x, float y, float width, float height, float radius)
-        {
-            using (GraphicsPath path = new GraphicsPath())
-            {
-                float r = radius;
-                if (r > width / 2f)
-                    r = width / 2f;
-                if (r > height / 2f)
-                    r = height / 2f;
-
-                path.AddArc(x, y, r * 2, r * 2, 180, 90);
-                path.AddArc(x + width - r * 2, y, r * 2, r * 2, 270, 90);
-                path.AddArc(x + width - r * 2, y + height - r * 2, r * 2, r * 2, 0, 90);
-                path.AddArc(x, y + height - r * 2, r * 2, r * 2, 90, 90);
-                path.CloseFigure();
-                g.DrawPath(pen, path);
             }
         }
 

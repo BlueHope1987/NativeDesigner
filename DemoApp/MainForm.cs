@@ -24,6 +24,7 @@ namespace DemoApp
         private SplitContainer _mainSplit;
         private SplitContainer _rightSplit;
         private string _currentFilePath = "";
+        private bool _contextMenuEnabled = true;
 
         private ToolStripButton _btnSelect;
         private ToolStripButton _btnConnect;
@@ -56,6 +57,10 @@ namespace DemoApp
         private ToolStripMenuItem _menuViewZoomIn;
         private ToolStripMenuItem _menuViewZoomOut;
         private ToolStripMenuItem _menuViewReset;
+        private ToolStripMenuItem _menuViewToolbar;
+        private ToolStripMenuItem _menuViewProperty;
+        private ToolStripMenuItem _menuViewToolbox;
+        private ToolStripMenuItem _menuViewContextMenu;
 
         private ToolStripMenuItem _menuToolSelect;
         private ToolStripMenuItem _menuToolConnect;
@@ -172,11 +177,24 @@ namespace DemoApp
             _menuViewGrid.Checked = GlobalConfig.Instance.ShowGrid;
             _menuViewSnap = new ToolStripMenuItem("对齐", null, new EventHandler(OnViewSnap));
             _menuViewSnap.Checked = GlobalConfig.Instance.SnapToGrid;
+            _menuViewToolbar = new ToolStripMenuItem("工具栏", null, new EventHandler(OnViewToolbar));
+            _menuViewToolbar.Checked = true;
+            _menuViewProperty = new ToolStripMenuItem("属性栏", null, new EventHandler(OnViewProperty));
+            _menuViewProperty.Checked = true;
+            _menuViewToolbox = new ToolStripMenuItem("工具箱", null, new EventHandler(OnViewToolbox));
+            _menuViewToolbox.Checked = true;
+            _menuViewContextMenu = new ToolStripMenuItem("右键菜单", null, new EventHandler(OnViewContextMenu));
+            _menuViewContextMenu.Checked = true;
             _menuViewZoomIn = new ToolStripMenuItem("放大", null, new EventHandler(OnViewZoomIn));
             _menuViewZoomOut = new ToolStripMenuItem("缩小", null, new EventHandler(OnViewZoomOut));
             _menuViewReset = new ToolStripMenuItem("重置视图", null, new EventHandler(OnViewReset));
             _menuView.DropDownItems.Add(_menuViewGrid);
             _menuView.DropDownItems.Add(_menuViewSnap);
+            _menuView.DropDownItems.Add(new ToolStripSeparator());
+            _menuView.DropDownItems.Add(_menuViewToolbar);
+            _menuView.DropDownItems.Add(_menuViewProperty);
+            _menuView.DropDownItems.Add(_menuViewToolbox);
+            _menuView.DropDownItems.Add(_menuViewContextMenu);
             _menuView.DropDownItems.Add(new ToolStripSeparator());
             _menuView.DropDownItems.Add(_menuViewZoomIn);
             _menuView.DropDownItems.Add(_menuViewZoomOut);
@@ -940,6 +958,48 @@ namespace DemoApp
             UpdateZoomLabel();
         }
 
+        private void OnViewToolbar(object sender, EventArgs e)
+        {
+            _toolStrip.Visible = !_toolStrip.Visible;
+            _menuViewToolbar.Checked = _toolStrip.Visible;
+        }
+
+        private void OnViewProperty(object sender, EventArgs e)
+        {
+            if (_propertyGrid.Visible)
+            {
+                _propertyGrid.Visible = false;
+                _rightSplit.Panel2Collapsed = true;
+            }
+            else
+            {
+                _rightSplit.Panel2Collapsed = false;
+                _propertyGrid.Visible = true;
+            }
+            _menuViewProperty.Checked = _propertyGrid.Visible;
+        }
+
+        private void OnViewToolbox(object sender, EventArgs e)
+        {
+            if (_toolbox.Visible)
+            {
+                _toolbox.Visible = false;
+                _mainSplit.Panel1Collapsed = true;
+            }
+            else
+            {
+                _mainSplit.Panel1Collapsed = false;
+                _toolbox.Visible = true;
+            }
+            _menuViewToolbox.Checked = _toolbox.Visible;
+        }
+
+        private void OnViewContextMenu(object sender, EventArgs e)
+        {
+            _contextMenuEnabled = !_contextMenuEnabled;
+            _menuViewContextMenu.Checked = _contextMenuEnabled;
+        }
+
         private void OnToolSelect(object sender, EventArgs e)
         {
             _canvas.CurrentTool = CanvasTool.Select;
@@ -1123,7 +1183,7 @@ namespace DemoApp
 
         private void OnCanvasMouseClick(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Right)
+            if (e.Button == MouseButtons.Right && _contextMenuEnabled)
             {
                 ShowContextMenu(e.Location);
             }

@@ -203,7 +203,7 @@ namespace CloudNativeDesigner.Core
 
         private void DrawRoundedRect(Graphics g, RectangleF rect, Color fill, Color stroke, float scale)
         {
-            using (GraphicsPath path = CreateRoundedRect(rect, _cornerRadius))
+            using (GraphicsPath path = GraphicsUtility.CreateRoundedRectPath(rect, _cornerRadius))
             {
                 if (_fill)
                 {
@@ -281,20 +281,6 @@ namespace CloudNativeDesigner.Core
             }
         }
 
-        private GraphicsPath CreateRoundedRect(RectangleF rect, float radius)
-        {
-            GraphicsPath path = new GraphicsPath();
-            float r = radius;
-            if (r > rect.Width / 2f) r = rect.Width / 2f;
-            if (r > rect.Height / 2f) r = rect.Height / 2f;
-
-            path.AddArc(rect.X, rect.Y, r * 2, r * 2, 180, 90);
-            path.AddArc(rect.Right - r * 2, rect.Y, r * 2, r * 2, 270, 90);
-            path.AddArc(rect.Right - r * 2, rect.Bottom - r * 2, r * 2, r * 2, 0, 90);
-            path.AddArc(rect.X, rect.Bottom - r * 2, r * 2, r * 2, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
     }
 
     public class ShapeColors
