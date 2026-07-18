@@ -60,9 +60,9 @@ namespace CloudNativeDesigner.Core
             {
                 CloudNativeDesigner.Shapes.ContainerShape c = (CloudNativeDesigner.Shapes.ContainerShape)shape;
                 List<ShapeBase> childrenCopy = new List<ShapeBase>(c.Children);
-                foreach (ShapeBase child in childrenCopy)
+                for (int i = childrenCopy.Count - 1; i >= 0; i--)
                 {
-                    child.Parent = null;
+                    RemoveShape(childrenCopy[i]);
                 }
             }
 

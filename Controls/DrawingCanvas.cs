@@ -34,6 +34,11 @@ namespace CloudNativeDesigner.Controls
         private RectangleF _selectionRect;
         private ShapeBase _hoveredShape;
         private Connection _hoveredConnection;
+        private bool _isResizing = false;
+        private ResizeHandle _resizeHandle = ResizeHandle.None;
+        private ShapeBase _resizeShape = null;
+        private RectangleF _resizeOriginalBounds;
+        private PointF _resizeStartPoint;
 
         private BufferedGraphics _bufferedGraphics;
         private BufferedGraphicsContext _bufferContext;
@@ -142,8 +147,8 @@ namespace CloudNativeDesigner.Controls
             g.ScaleTransform(_zoom, _zoom);
 
             DrawGrid(g);
-            DrawConnections(g);
             DrawShapes(g);
+            DrawConnections(g);
             DrawRubberBand(g);
             DrawSelectionRect(g);
 
@@ -258,11 +263,28 @@ namespace CloudNativeDesigner.Controls
                     _document.ClearSelection();
 
                 shape.Selected = true;
+
+                ResizeHandle handle = shape.HitTestResizeHandle(worldPos, 8f / _zoom);
+                if (handle != ResizeHandle.None)
+                {
+                    _isResizing = true;
+                    _resizeHandle = handle;
+                    _resizeShape = shape;
+                    _resizeOriginalBounds = shape.Bounds;
+                    _resizeStartPoint = worldPos;
+                    OnSelectionChanged();
+                    Invalidate();
+                    return;
+                }
+
                 _dragShape = shape;
                 _isDragging = true;
                 _dragStart = worldPos;
 
                 _draggingShapes = _document.GetSelectedShapes();
+
+                _draggingShapes = ExpandWithChildren(_draggingShapes);
+
                 _dragOriginalPositions = new PointF[_draggingShapes.Count];
                 for (int i = 0; i < _draggingShapes.Count; i++)
                 {
@@ -290,6 +312,96 @@ namespace CloudNativeDesigner.Controls
             Invalidate();
         }
 
+        private List<ShapeBase> ExpandWithChildren(List<ShapeBase> shapes)
+        {
+            List<ShapeBase> result = new List<ShapeBase>();
+            for (int i = 0; i < shapes.Count; i++)
+            {
+                ShapeBase s = shapes[i];
+                if (!result.Contains(s))
+                    result.Add(s);
+                if (s is ContainerShape)
+                {
+                    ContainerShape cs = (ContainerShape)s;
+                    for (int j = 0; j < cs.Children.Count; j++)
+                    {
+                        ShapeBase child = cs.Children[j];
+                        if (!result.Contains(child))
+                            result.Add(child);
+                    }
+                }
+            }
+            return result;
+        }
+
+        private void UpdateContainerMembership(List<ShapeBase> movedShapes)
+        {
+            for (int i = 0; i < movedShapes.Count; i++)
+            {
+                ShapeBase shape = movedShapes[i];
+                if (shape is ContainerShape)
+                    continue;
+
+                ShapeBase oldParent = shape.Parent;
+                ContainerShape newParent = null;
+
+                RectangleF shapeRect = shape.Bounds;
+
+                for (int j = 0; j < _document.Shapes.Count; j++)
+                {
+                    ShapeBase candidate = _document.Shapes[j];
+                    if (candidate == shape)
+                        continue;
+                    if (candidate is ContainerShape)
+                    {
+                        ContainerShape container = (ContainerShape)candidate;
+                        if (IsFullyInsideContainer(shapeRect, container))
+                        {
+                            if (newParent == null ||
+                                container.ZOrder > newParent.ZOrder)
+                            {
+                                newParent = container;
+                            }
+                        }
+                    }
+                }
+
+                if (oldParent != newParent)
+                {
+                    if (oldParent is ContainerShape)
+                    {
+                        ((ContainerShape)oldParent).RemoveChild(shape);
+                    }
+
+                    if (newParent != null)
+                    {
+                        newParent.AddChild(shape);
+                    }
+                    else
+                    {
+                        shape.Parent = null;
+                    }
+                }
+            }
+        }
+
+        private bool IsFullyInsideContainer(RectangleF shapeRect, ContainerShape container)
+        {
+            RectangleF headerRect = container.Bounds;
+            headerRect.Height = container.HeaderHeight;
+            RectangleF bodyRect = container.Bounds;
+            bodyRect.Y += container.HeaderHeight;
+            bodyRect.Height -= container.HeaderHeight;
+
+            if (shapeRect.X < bodyRect.X + 4 ||
+                shapeRect.Y < bodyRect.Y + 4 ||
+                shapeRect.Right > bodyRect.Right - 4 ||
+                shapeRect.Bottom > bodyRect.Bottom - 4)
+                return false;
+
+            return true;
+        }
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
@@ -304,7 +416,83 @@ namespace CloudNativeDesigner.Controls
                 return;
             }
 
-            if (_isDragging && _draggingShapes.Count > 0)
+            if (_isResizing && _resizeShape != null)
+            {
+                float dx = worldPos.X - _resizeStartPoint.X;
+                float dy = worldPos.Y - _resizeStartPoint.Y;
+
+                float newX = _resizeOriginalBounds.X;
+                float newY = _resizeOriginalBounds.Y;
+                float newW = _resizeOriginalBounds.Width;
+                float newH = _resizeOriginalBounds.Height;
+
+                if (_resizeHandle == ResizeHandle.TopLeft ||
+                    _resizeHandle == ResizeHandle.MiddleLeft ||
+                    _resizeHandle == ResizeHandle.BottomLeft)
+                {
+                    newX = _resizeOriginalBounds.X + dx;
+                    newW = _resizeOriginalBounds.Width - dx;
+                }
+                if (_resizeHandle == ResizeHandle.TopRight ||
+                    _resizeHandle == ResizeHandle.MiddleRight ||
+                    _resizeHandle == ResizeHandle.BottomRight)
+                {
+                    newW = _resizeOriginalBounds.Width + dx;
+                }
+                if (_resizeHandle == ResizeHandle.TopLeft ||
+                    _resizeHandle == ResizeHandle.TopCenter ||
+                    _resizeHandle == ResizeHandle.TopRight)
+                {
+                    newY = _resizeOriginalBounds.Y + dy;
+                    newH = _resizeOriginalBounds.Height - dy;
+                }
+                if (_resizeHandle == ResizeHandle.BottomLeft ||
+                    _resizeHandle == ResizeHandle.BottomCenter ||
+                    _resizeHandle == ResizeHandle.BottomRight)
+                {
+                    newH = _resizeOriginalBounds.Height + dy;
+                }
+
+                float minW = _resizeShape.MinWidth;
+                float minH = _resizeShape.MinHeight;
+
+                if (newW < minW)
+                {
+                    if (_resizeHandle == ResizeHandle.TopLeft ||
+                        _resizeHandle == ResizeHandle.MiddleLeft ||
+                        _resizeHandle == ResizeHandle.BottomLeft)
+                    {
+                        newX = _resizeOriginalBounds.Right - minW;
+                    }
+                    newW = minW;
+                }
+                if (newH < minH)
+                {
+                    if (_resizeHandle == ResizeHandle.TopLeft ||
+                        _resizeHandle == ResizeHandle.TopCenter ||
+                        _resizeHandle == ResizeHandle.TopRight)
+                    {
+                        newY = _resizeOriginalBounds.Bottom - minH;
+                    }
+                    newH = minH;
+                }
+
+                if (GlobalConfig.Instance.SnapToGrid)
+                {
+                    float grid = GlobalConfig.Instance.GridSize;
+                    newX = (float)Math.Round(newX / grid) * grid;
+                    newY = (float)Math.Round(newY / grid) * grid;
+                    newW = (float)Math.Round(newW / grid) * grid;
+                    newH = (float)Math.Round(newH / grid) * grid;
+                    if (newW < minW) newW = minW;
+                    if (newH < minH) newH = minH;
+                }
+
+                _resizeShape.Bounds = new RectangleF(newX, newY, newW, newH);
+                OnDocumentModified();
+                Invalidate();
+            }
+            else if (_isDragging && _draggingShapes.Count > 0)
             {
                 float dx = worldPos.X - _dragStart.X;
                 float dy = worldPos.Y - _dragStart.Y;
@@ -368,9 +556,32 @@ namespace CloudNativeDesigner.Controls
                     Invalidate();
 
                 if (_currentTool == CanvasTool.Connect)
+                {
                     Cursor = (shape != null) ? Cursors.Cross : Cursors.Default;
+                }
                 else
-                    Cursor = (shape != null) ? Cursors.SizeAll : Cursors.Default;
+                {
+                    if (shape != null && shape.Selected && shape.Resizable)
+                    {
+                        ResizeHandle rh = shape.HitTestResizeHandle(worldPos, 8f / _zoom);
+                        if (rh != ResizeHandle.None)
+                        {
+                            Cursor = ShapeBase.GetResizeCursor(rh);
+                        }
+                        else
+                        {
+                            Cursor = Cursors.SizeAll;
+                        }
+                    }
+                    else if (shape != null)
+                    {
+                        Cursor = Cursors.SizeAll;
+                    }
+                    else
+                    {
+                        Cursor = Cursors.Default;
+                    }
+                }
             }
         }
 
@@ -387,10 +598,20 @@ namespace CloudNativeDesigner.Controls
             if (e.Button != MouseButtons.Left)
                 return;
 
+            if (_isResizing)
+            {
+                _isResizing = false;
+                _resizeHandle = ResizeHandle.None;
+                _resizeShape = null;
+                Invalidate();
+            }
+
             if (_isDragging)
             {
                 _isDragging = false;
                 _dragShape = null;
+
+                UpdateContainerMembership(_draggingShapes);
                 _draggingShapes.Clear();
                 _dragOriginalPositions = null;
                 Invalidate();
@@ -498,6 +719,7 @@ namespace CloudNativeDesigner.Controls
                 _document.ClearSelection();
                 _isConnecting = false;
                 _isDragging = false;
+                _isResizing = false;
                 _isSelecting = false;
                 CurrentTool = CanvasTool.Select;
                 OnSelectionChanged();

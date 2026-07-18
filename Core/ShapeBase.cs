@@ -2,9 +2,23 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Windows.Forms;
 
 namespace CloudNativeDesigner.Core
 {
+    public enum ResizeHandle
+    {
+        None,
+        TopLeft,
+        TopCenter,
+        TopRight,
+        MiddleLeft,
+        MiddleRight,
+        BottomLeft,
+        BottomCenter,
+        BottomRight
+    }
+
     [Serializable]
     public abstract class ShapeBase
     {
@@ -22,6 +36,9 @@ namespace CloudNativeDesigner.Core
         private ShapeBase _parent = null;
         private int _zOrder = 0;
         private bool _visible = true;
+        private bool _resizable = false;
+        private float _minWidth = 30f;
+        private float _minHeight = 30f;
 
         [Browsable(false)]
         public Guid Id
@@ -189,6 +206,41 @@ namespace CloudNativeDesigner.Core
             set { _visible = value; }
         }
 
+        [Category("行为")]
+        [DisplayName("可调整大小")]
+        [Description("是否允许通过拖拽手柄调整尺寸")]
+        public bool Resizable
+        {
+            get { return _resizable; }
+            set { _resizable = value; }
+        }
+
+        [Category("行为")]
+        [DisplayName("最小宽度")]
+        [Description("调整大小时的最小宽度限制")]
+        public float MinWidth
+        {
+            get { return _minWidth; }
+            set
+            {
+                if (value > 0)
+                    _minWidth = value;
+            }
+        }
+
+        [Category("行为")]
+        [DisplayName("最小高度")]
+        [Description("调整大小时的最小高度限制")]
+        public float MinHeight
+        {
+            get { return _minHeight; }
+            set
+            {
+                if (value > 0)
+                    _minHeight = value;
+            }
+        }
+
         [Browsable(false)]
         public PointF Center
         {
@@ -240,6 +292,87 @@ namespace CloudNativeDesigner.Core
             return new PointF(center.X + dx * scale, center.Y + dy * scale);
         }
 
+        public ResizeHandle HitTestResizeHandle(PointF pt, float tolerance)
+        {
+            if (!_resizable || !_selected)
+                return ResizeHandle.None;
+
+            float halfT = tolerance / 2f;
+            float t = tolerance + 2f;
+
+            PointF tl = new PointF(_bounds.X, _bounds.Y);
+            PointF tc = new PointF(_bounds.X + _bounds.Width / 2f, _bounds.Y);
+            PointF tr = new PointF(_bounds.Right, _bounds.Y);
+            PointF ml = new PointF(_bounds.X, _bounds.Y + _bounds.Height / 2f);
+            PointF mr = new PointF(_bounds.Right, _bounds.Y + _bounds.Height / 2f);
+            PointF bl = new PointF(_bounds.X, _bounds.Bottom);
+            PointF bc = new PointF(_bounds.X + _bounds.Width / 2f, _bounds.Bottom);
+            PointF br = new PointF(_bounds.Right, _bounds.Bottom);
+
+            float dx = Math.Abs(pt.X - tl.X);
+            float dy = Math.Abs(pt.Y - tl.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.TopLeft;
+
+            dx = Math.Abs(pt.X - tc.X);
+            dy = Math.Abs(pt.Y - tc.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.TopCenter;
+
+            dx = Math.Abs(pt.X - tr.X);
+            dy = Math.Abs(pt.Y - tr.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.TopRight;
+
+            dx = Math.Abs(pt.X - ml.X);
+            dy = Math.Abs(pt.Y - ml.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.MiddleLeft;
+
+            dx = Math.Abs(pt.X - mr.X);
+            dy = Math.Abs(pt.Y - mr.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.MiddleRight;
+
+            dx = Math.Abs(pt.X - bl.X);
+            dy = Math.Abs(pt.Y - bl.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.BottomLeft;
+
+            dx = Math.Abs(pt.X - bc.X);
+            dy = Math.Abs(pt.Y - bc.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.BottomCenter;
+
+            dx = Math.Abs(pt.X - br.X);
+            dy = Math.Abs(pt.Y - br.Y);
+            if (dx <= t && dy <= t) return ResizeHandle.BottomRight;
+
+            if (pt.X >= _bounds.X - halfT && pt.X <= _bounds.X + halfT &&
+                pt.Y >= _bounds.Y && pt.Y <= _bounds.Bottom)
+                return ResizeHandle.MiddleLeft;
+
+            if (pt.X >= _bounds.Right - halfT && pt.X <= _bounds.Right + halfT &&
+                pt.Y >= _bounds.Y && pt.Y <= _bounds.Bottom)
+                return ResizeHandle.MiddleRight;
+
+            if (pt.Y >= _bounds.Y - halfT && pt.Y <= _bounds.Y + halfT &&
+                pt.X >= _bounds.X && pt.X <= _bounds.Right)
+                return ResizeHandle.TopCenter;
+
+            if (pt.Y >= _bounds.Bottom - halfT && pt.Y <= _bounds.Bottom + halfT &&
+                pt.X >= _bounds.X && pt.X <= _bounds.Right)
+                return ResizeHandle.BottomCenter;
+
+            return ResizeHandle.None;
+        }
+
+        public static Cursor GetResizeCursor(ResizeHandle handle)
+        {
+            if (handle == ResizeHandle.TopLeft || handle == ResizeHandle.BottomRight)
+                return Cursors.SizeNWSE;
+            if (handle == ResizeHandle.TopRight || handle == ResizeHandle.BottomLeft)
+                return Cursors.SizeNESW;
+            if (handle == ResizeHandle.TopCenter || handle == ResizeHandle.BottomCenter)
+                return Cursors.SizeNS;
+            if (handle == ResizeHandle.MiddleLeft || handle == ResizeHandle.MiddleRight)
+                return Cursors.SizeWE;
+            return Cursors.Default;
+        }
+
         public abstract void Draw(Graphics g, float scale);
         public abstract ShapeBase Clone();
 
@@ -273,10 +406,24 @@ namespace CloudNativeDesigner.Core
                 float handleSize = 6f / scale;
                 using (Brush brush = new SolidBrush(Color.FromArgb(0, 120, 215)))
                 {
-                    DrawHandle(g, brush, rect.Left, rect.Top, handleSize);
-                    DrawHandle(g, brush, rect.Right, rect.Top, handleSize);
-                    DrawHandle(g, brush, rect.Left, rect.Bottom, handleSize);
-                    DrawHandle(g, brush, rect.Right, rect.Bottom, handleSize);
+                    if (_resizable)
+                    {
+                        DrawHandle(g, brush, rect.Left, rect.Top, handleSize);
+                        DrawHandle(g, brush, rect.X + rect.Width / 2f, rect.Top, handleSize);
+                        DrawHandle(g, brush, rect.Right, rect.Top, handleSize);
+                        DrawHandle(g, brush, rect.Left, rect.Y + rect.Height / 2f, handleSize);
+                        DrawHandle(g, brush, rect.Right, rect.Y + rect.Height / 2f, handleSize);
+                        DrawHandle(g, brush, rect.Left, rect.Bottom, handleSize);
+                        DrawHandle(g, brush, rect.X + rect.Width / 2f, rect.Bottom, handleSize);
+                        DrawHandle(g, brush, rect.Right, rect.Bottom, handleSize);
+                    }
+                    else
+                    {
+                        DrawHandle(g, brush, rect.Left, rect.Top, handleSize);
+                        DrawHandle(g, brush, rect.Right, rect.Top, handleSize);
+                        DrawHandle(g, brush, rect.Left, rect.Bottom, handleSize);
+                        DrawHandle(g, brush, rect.Right, rect.Bottom, handleSize);
+                    }
                 }
             }
         }

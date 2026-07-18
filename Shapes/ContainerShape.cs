@@ -19,6 +19,9 @@ namespace CloudNativeDesigner.Shapes
         {
             Name = "容器";
             IsContainer = true;
+            Resizable = true;
+            MinWidth = 120f;
+            MinHeight = 80f;
             Bounds = new RectangleF(0, 0, 300, 220);
             FillColor = Color.FromArgb(250, 250, 250);
             BorderColor = Color.FromArgb(100, 100, 120);
