@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Forms;
 
-namespace CloudNativeDesigner
+namespace DemoApp
 {
     static class Program
     {

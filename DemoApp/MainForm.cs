@@ -9,13 +9,14 @@ using CloudNativeDesigner.Core;
 using CloudNativeDesigner.Serialization;
 using CloudNativeDesigner.Shapes;
 
-namespace CloudNativeDesigner
+namespace DemoApp
 {
     public class MainForm : Form
     {
         private DrawingCanvas _canvas;
         private ToolboxPanel _toolbox;
         private PropertyGrid _propertyGrid;
+        private MenuStrip _menuStrip;
         private ToolStrip _toolStrip;
         private StatusStrip _statusStrip;
         private ToolStripStatusLabel _statusLabel;
@@ -24,10 +25,48 @@ namespace CloudNativeDesigner
         private SplitContainer _rightSplit;
         private string _currentFilePath = "";
 
+        private ToolStripButton _btnSelect;
+        private ToolStripButton _btnConnect;
+        private ToolStripButton _btnStraight;
+        private ToolStripButton _btnCurve;
+        private ToolStripButton _btnOrtho;
+        private ToolStripButton _btnZoomIn;
+        private ToolStripButton _btnZoomOut;
+        private ToolStripButton _btnFit;
+        private ToolStripButton _btnFront;
+        private ToolStripButton _btnBack;
+        private ToolStripButton _btnDelete;
+
+        private ToolStripMenuItem _menuFile;
+        private ToolStripMenuItem _menuEdit;
+        private ToolStripMenuItem _menuView;
+        private ToolStripMenuItem _menuTools;
+
+        private ToolStripMenuItem _menuFileNew;
+        private ToolStripMenuItem _menuFileOpen;
+        private ToolStripMenuItem _menuFileSave;
+        private ToolStripMenuItem _menuFileSaveAs;
+        private ToolStripMenuItem _menuFileExit;
+
+        private ToolStripMenuItem _menuEditDelete;
+        private ToolStripMenuItem _menuEditSelectAll;
+
+        private ToolStripMenuItem _menuViewGrid;
+        private ToolStripMenuItem _menuViewSnap;
+        private ToolStripMenuItem _menuViewZoomIn;
+        private ToolStripMenuItem _menuViewZoomOut;
+        private ToolStripMenuItem _menuViewReset;
+
+        private ToolStripMenuItem _menuToolSelect;
+        private ToolStripMenuItem _menuToolConnect;
+        private ToolStripMenuItem _menuToolStraight;
+        private ToolStripMenuItem _menuToolCurve;
+        private ToolStripMenuItem _menuToolOrtho;
+
         public MainForm()
         {
             InitializeComponent();
-            this.Text = "云原生可视化设计器";
+            this.Text = "云原生可视化设计器 - 演示应用";
             this.Size = new Size(1400, 900);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.Icon = SystemIcons.Application;
@@ -61,7 +100,7 @@ namespace CloudNativeDesigner
             _propertyGrid.HelpVisible = true;
             _propertyGrid.PropertySort = PropertySort.CategorizedAlphabetical;
 
-            _toolStrip = new ToolStrip();
+            InitializeMenuStrip();
             InitializeToolStrip();
 
             _statusStrip = new StatusStrip();
@@ -78,9 +117,12 @@ namespace CloudNativeDesigner
 
             _toolStrip.Dock = DockStyle.Top;
             _statusStrip.Dock = DockStyle.Bottom;
+
             this.Controls.Add(_statusStrip);
             this.Controls.Add(_toolStrip);
+            this.Controls.Add(_menuStrip);
             this.Controls.Add(_mainSplit);
+            this.MainMenuStrip = _menuStrip;
 
             _canvas.SelectionChanged += new EventHandler(OnCanvasSelectionChanged);
             _canvas.DocumentModified += new EventHandler(OnDocumentModified);
@@ -97,6 +139,128 @@ namespace CloudNativeDesigner
         {
             _canvas.Invalidate();
         }
+
+        private void InitializeMenuStrip()
+        {
+            _menuStrip = new MenuStrip();
+
+            _menuFile = new ToolStripMenuItem("文件(&F)");
+            _menuFileNew = new ToolStripMenuItem("新建", null, new EventHandler(OnFileNew));
+            _menuFileOpen = new ToolStripMenuItem("打开...", null, new EventHandler(OnFileOpen));
+            _menuFileOpen.ShortcutKeys = Keys.Control | Keys.O;
+            _menuFileSave = new ToolStripMenuItem("保存", null, new EventHandler(OnFileSave));
+            _menuFileSave.ShortcutKeys = Keys.Control | Keys.S;
+            _menuFileSaveAs = new ToolStripMenuItem("另存为...", null, new EventHandler(OnFileSaveAs));
+            _menuFileExit = new ToolStripMenuItem("退出", null, new EventHandler(OnFileExit));
+            _menuFile.DropDownItems.Add(_menuFileNew);
+            _menuFile.DropDownItems.Add(_menuFileOpen);
+            _menuFile.DropDownItems.Add(_menuFileSave);
+            _menuFile.DropDownItems.Add(_menuFileSaveAs);
+            _menuFile.DropDownItems.Add(new ToolStripSeparator());
+            _menuFile.DropDownItems.Add(_menuFileExit);
+
+            _menuEdit = new ToolStripMenuItem("编辑(&E)");
+            _menuEditDelete = new ToolStripMenuItem("删除", null, new EventHandler(OnEditDelete));
+            _menuEditDelete.ShortcutKeys = Keys.Delete;
+            _menuEditSelectAll = new ToolStripMenuItem("全选", null, new EventHandler(OnEditSelectAll));
+            _menuEditSelectAll.ShortcutKeys = Keys.Control | Keys.A;
+            _menuEdit.DropDownItems.Add(_menuEditDelete);
+            _menuEdit.DropDownItems.Add(_menuEditSelectAll);
+
+            _menuView = new ToolStripMenuItem("视图(&V)");
+            _menuViewGrid = new ToolStripMenuItem("网格", null, new EventHandler(OnViewGrid));
+            _menuViewGrid.Checked = GlobalConfig.Instance.ShowGrid;
+            _menuViewSnap = new ToolStripMenuItem("对齐", null, new EventHandler(OnViewSnap));
+            _menuViewSnap.Checked = GlobalConfig.Instance.SnapToGrid;
+            _menuViewZoomIn = new ToolStripMenuItem("放大", null, new EventHandler(OnViewZoomIn));
+            _menuViewZoomOut = new ToolStripMenuItem("缩小", null, new EventHandler(OnViewZoomOut));
+            _menuViewReset = new ToolStripMenuItem("重置视图", null, new EventHandler(OnViewReset));
+            _menuView.DropDownItems.Add(_menuViewGrid);
+            _menuView.DropDownItems.Add(_menuViewSnap);
+            _menuView.DropDownItems.Add(new ToolStripSeparator());
+            _menuView.DropDownItems.Add(_menuViewZoomIn);
+            _menuView.DropDownItems.Add(_menuViewZoomOut);
+            _menuView.DropDownItems.Add(_menuViewReset);
+
+            _menuTools = new ToolStripMenuItem("工具(&T)");
+            _menuToolSelect = new ToolStripMenuItem("选择工具", null, new EventHandler(OnToolSelect));
+            _menuToolConnect = new ToolStripMenuItem("连线工具", null, new EventHandler(OnToolConnect));
+            _menuToolStraight = new ToolStripMenuItem("直线模式", null, new EventHandler(OnToolStraight));
+            _menuToolCurve = new ToolStripMenuItem("曲线模式", null, new EventHandler(OnToolCurve));
+            _menuToolOrtho = new ToolStripMenuItem("折线模式", null, new EventHandler(OnToolOrtho));
+            _menuTools.DropDownItems.Add(_menuToolSelect);
+            _menuTools.DropDownItems.Add(_menuToolConnect);
+            _menuTools.DropDownItems.Add(new ToolStripSeparator());
+            _menuTools.DropDownItems.Add(_menuToolStraight);
+            _menuTools.DropDownItems.Add(_menuToolCurve);
+            _menuTools.DropDownItems.Add(_menuToolOrtho);
+
+            _menuStrip.Items.Add(_menuFile);
+            _menuStrip.Items.Add(_menuEdit);
+            _menuStrip.Items.Add(_menuView);
+            _menuStrip.Items.Add(_menuTools);
+        }
+
+        private void InitializeToolStrip()
+        {
+            _toolStrip = new ToolStrip();
+
+            _btnSelect = new ToolStripButton("选择", null, new EventHandler(OnSelectTool));
+            _btnSelect.CheckOnClick = true;
+            _btnSelect.Checked = true;
+            _btnSelect.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnConnect = new ToolStripButton("连线", null, new EventHandler(OnConnectTool));
+            _btnConnect.CheckOnClick = true;
+            _btnConnect.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnStraight = new ToolStripButton("直线", null, new EventHandler(OnStraightMode));
+            _btnStraight.CheckOnClick = true;
+            _btnStraight.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnCurve = new ToolStripButton("曲线", null, new EventHandler(OnCurveMode));
+            _btnCurve.CheckOnClick = true;
+            _btnCurve.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnOrtho = new ToolStripButton("折线", null, new EventHandler(OnOrthoMode));
+            _btnOrtho.CheckOnClick = true;
+            _btnOrtho.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnZoomIn = new ToolStripButton("放大", null, new EventHandler(OnZoomIn));
+            _btnZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnZoomOut = new ToolStripButton("缩小", null, new EventHandler(OnZoomOut));
+            _btnZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnFit = new ToolStripButton("适应", null, new EventHandler(OnZoomFit));
+            _btnFit.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnFront = new ToolStripButton("置顶", null, new EventHandler(OnBringToFront));
+            _btnFront.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnBack = new ToolStripButton("置底", null, new EventHandler(OnSendToBack));
+            _btnBack.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _btnDelete = new ToolStripButton("删除", null, new EventHandler(OnDeleteSelected));
+            _btnDelete.DisplayStyle = ToolStripItemDisplayStyle.Text;
+
+            _toolStrip.Items.Add(_btnSelect);
+            _toolStrip.Items.Add(_btnConnect);
+            _toolStrip.Items.Add(new ToolStripSeparator());
+            _toolStrip.Items.Add(_btnStraight);
+            _toolStrip.Items.Add(_btnCurve);
+            _toolStrip.Items.Add(_btnOrtho);
+            _toolStrip.Items.Add(new ToolStripSeparator());
+            _toolStrip.Items.Add(_btnZoomIn);
+            _toolStrip.Items.Add(_btnZoomOut);
+            _toolStrip.Items.Add(_btnFit);
+            _toolStrip.Items.Add(new ToolStripSeparator());
+            _toolStrip.Items.Add(_btnFront);
+            _toolStrip.Items.Add(_btnBack);
+            _toolStrip.Items.Add(_btnDelete);
+        }
+
+        #region Shape Type Registration
 
         private void InitializeShapeTypes()
         {
@@ -640,91 +804,172 @@ namespace CloudNativeDesigner
             ShapeTypeRegistry.Instance.Register(t);
         }
 
-        private void InitializeToolStrip()
+        #endregion
+
+        #region Menu Event Handlers
+
+        private void OnFileNew(object sender, EventArgs e)
         {
-            ToolStripButton btnSelect = new ToolStripButton("选择", null, new EventHandler(OnSelectTool));
-            btnSelect.CheckOnClick = true;
-            btnSelect.Checked = true;
-            btnSelect.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnConnect = new ToolStripButton("连线", null, new EventHandler(OnConnectTool));
-            btnConnect.CheckOnClick = true;
-            btnConnect.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripSeparator sep1 = new ToolStripSeparator();
-
-            ToolStripButton btnStraight = new ToolStripButton("直线", null, new EventHandler(OnStraightMode));
-            btnStraight.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnCurve = new ToolStripButton("曲线", null, new EventHandler(OnCurveMode));
-            btnCurve.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnOrtho = new ToolStripButton("折线", null, new EventHandler(OnOrthoMode));
-            btnOrtho.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripSeparator sep2 = new ToolStripSeparator();
-
-            ToolStripButton btnZoomIn = new ToolStripButton("放大", null, new EventHandler(OnZoomIn));
-            btnZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnZoomOut = new ToolStripButton("缩小", null, new EventHandler(OnZoomOut));
-            btnZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnFit = new ToolStripButton("适应", null, new EventHandler(OnZoomFit));
-            btnFit.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripSeparator sep3 = new ToolStripSeparator();
-
-            ToolStripButton btnFront = new ToolStripButton("置顶", null, new EventHandler(OnBringToFront));
-            btnFront.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnBack = new ToolStripButton("置底", null, new EventHandler(OnSendToBack));
-            btnBack.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnDelete = new ToolStripButton("删除", null, new EventHandler(OnDeleteSelected));
-            btnDelete.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripSeparator sep4 = new ToolStripSeparator();
-
-            ToolStripButton btnSave = new ToolStripButton("保存", null, new EventHandler(OnSave));
-            btnSave.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripButton btnLoad = new ToolStripButton("打开", null, new EventHandler(OnLoad));
-            btnLoad.DisplayStyle = ToolStripItemDisplayStyle.Text;
-
-            ToolStripSeparator sep5 = new ToolStripSeparator();
-
-            ToolStripButton btnGrid = new ToolStripButton("网格", null, new EventHandler(OnToggleGrid));
-            btnGrid.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnGrid.Checked = GlobalConfig.Instance.ShowGrid;
-            btnGrid.CheckOnClick = true;
-
-            ToolStripButton btnSnap = new ToolStripButton("对齐", null, new EventHandler(OnToggleSnap));
-            btnSnap.DisplayStyle = ToolStripItemDisplayStyle.Text;
-            btnSnap.Checked = GlobalConfig.Instance.SnapToGrid;
-            btnSnap.CheckOnClick = true;
-
-            _toolStrip.Items.Add(btnSelect);
-            _toolStrip.Items.Add(btnConnect);
-            _toolStrip.Items.Add(sep1);
-            _toolStrip.Items.Add(btnStraight);
-            _toolStrip.Items.Add(btnCurve);
-            _toolStrip.Items.Add(btnOrtho);
-            _toolStrip.Items.Add(sep2);
-            _toolStrip.Items.Add(btnZoomIn);
-            _toolStrip.Items.Add(btnZoomOut);
-            _toolStrip.Items.Add(btnFit);
-            _toolStrip.Items.Add(sep3);
-            _toolStrip.Items.Add(btnFront);
-            _toolStrip.Items.Add(btnBack);
-            _toolStrip.Items.Add(btnDelete);
-            _toolStrip.Items.Add(sep4);
-            _toolStrip.Items.Add(btnSave);
-            _toolStrip.Items.Add(btnLoad);
-            _toolStrip.Items.Add(sep5);
-            _toolStrip.Items.Add(btnGrid);
-            _toolStrip.Items.Add(btnSnap);
+            _canvas.Document.Clear();
+            _currentFilePath = "";
+            _propertyGrid.SelectedObject = GlobalConfig.Instance;
+            _statusLabel.Text = "新建文档";
+            _canvas.Invalidate();
         }
+
+        private void OnFileOpen(object sender, EventArgs e)
+        {
+            OpenFileDialog dlg = new OpenFileDialog();
+            dlg.Filter = "XML 文件 (*.xml)|*.xml|所有文件 (*.*)|*.*";
+            dlg.DefaultExt = "xml";
+
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    DrawingDocument doc = XmlShapeSerializer.Load(dlg.FileName);
+                    _canvas.Document.Clear();
+
+                    foreach (ShapeBase shape in doc.Shapes)
+                        _canvas.Document.AddShape(shape);
+                    foreach (Connection conn in doc.Connections)
+                        _canvas.Document.AddConnection(conn);
+
+                    _currentFilePath = dlg.FileName;
+                    _statusLabel.Text = "已打开: " + dlg.FileName;
+                    _canvas.Invalidate();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("打开失败: " + ex.Message, "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void OnFileSave(object sender, EventArgs e)
+        {
+            if (_currentFilePath.Length > 0)
+            {
+                try
+                {
+                    XmlShapeSerializer.Save(_currentFilePath, _canvas.Document);
+                    _statusLabel.Text = "已保存: " + _currentFilePath;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("保存失败: " + ex.Message, "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            else
+            {
+                OnFileSaveAs(sender, e);
+            }
+        }
+
+        private void OnFileSaveAs(object sender, EventArgs e)
+        {
+            SaveFileDialog dlg = new SaveFileDialog();
+            dlg.Filter = "XML 文件 (*.xml)|*.xml|所有文件 (*.*)|*.*";
+            dlg.DefaultExt = "xml";
+            if (_currentFilePath.Length > 0)
+                dlg.FileName = _currentFilePath;
+
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    XmlShapeSerializer.Save(dlg.FileName, _canvas.Document);
+                    _currentFilePath = dlg.FileName;
+                    _statusLabel.Text = "已保存: " + dlg.FileName;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("保存失败: " + ex.Message, "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void OnFileExit(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void OnEditDelete(object sender, EventArgs e)
+        {
+            _canvas.DeleteSelected();
+        }
+
+        private void OnEditSelectAll(object sender, EventArgs e)
+        {
+            foreach (ShapeBase s in _canvas.Document.Shapes)
+                s.Selected = true;
+            _canvas.Invalidate();
+        }
+
+        private void OnViewGrid(object sender, EventArgs e)
+        {
+            GlobalConfig.Instance.ShowGrid = !GlobalConfig.Instance.ShowGrid;
+            _menuViewGrid.Checked = GlobalConfig.Instance.ShowGrid;
+        }
+
+        private void OnViewSnap(object sender, EventArgs e)
+        {
+            GlobalConfig.Instance.SnapToGrid = !GlobalConfig.Instance.SnapToGrid;
+            _menuViewSnap.Checked = GlobalConfig.Instance.SnapToGrid;
+        }
+
+        private void OnViewZoomIn(object sender, EventArgs e)
+        {
+            _canvas.Zoom *= 1.2f;
+            UpdateZoomLabel();
+        }
+
+        private void OnViewZoomOut(object sender, EventArgs e)
+        {
+            _canvas.Zoom /= 1.2f;
+            UpdateZoomLabel();
+        }
+
+        private void OnViewReset(object sender, EventArgs e)
+        {
+            _canvas.Zoom = 1.0f;
+            _canvas.Offset = new PointF(0, 0);
+            UpdateZoomLabel();
+        }
+
+        private void OnToolSelect(object sender, EventArgs e)
+        {
+            _canvas.CurrentTool = CanvasTool.Select;
+            UpdateToolState();
+        }
+
+        private void OnToolConnect(object sender, EventArgs e)
+        {
+            _canvas.CurrentTool = CanvasTool.Connect;
+            UpdateToolState();
+        }
+
+        private void OnToolStraight(object sender, EventArgs e)
+        {
+            SetConnectionMode(ConnectionMode.Straight);
+        }
+
+        private void OnToolCurve(object sender, EventArgs e)
+        {
+            SetConnectionMode(ConnectionMode.Curve);
+        }
+
+        private void OnToolOrtho(object sender, EventArgs e)
+        {
+            SetConnectionMode(ConnectionMode.Orthogonal);
+        }
+
+        #endregion
+
+        #region Toolbar Event Handlers
 
         private void OnSelectTool(object sender, EventArgs e)
         {
@@ -787,96 +1032,53 @@ namespace CloudNativeDesigner
             _canvas.DeleteSelected();
         }
 
-        private void OnToggleGrid(object sender, EventArgs e)
-        {
-            GlobalConfig.Instance.ShowGrid = !GlobalConfig.Instance.ShowGrid;
-        }
+        #endregion
 
-        private void OnToggleSnap(object sender, EventArgs e)
-        {
-            GlobalConfig.Instance.SnapToGrid = !GlobalConfig.Instance.SnapToGrid;
-        }
-
-        private void OnSave(object sender, EventArgs e)
-        {
-            SaveFileDialog dlg = new SaveFileDialog();
-            dlg.Filter = "XML 文件 (*.xml)|*.xml|所有文件 (*.*)|*.*";
-            dlg.DefaultExt = "xml";
-            if (_currentFilePath.Length > 0)
-                dlg.FileName = _currentFilePath;
-
-            if (dlg.ShowDialog() == DialogResult.OK)
-            {
-                try
-                {
-                    XmlShapeSerializer.Save(dlg.FileName, _canvas.Document);
-                    _currentFilePath = dlg.FileName;
-                    _statusLabel.Text = "已保存: " + dlg.FileName;
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("保存失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-        }
-
-        private void OnLoad(object sender, EventArgs e)
-        {
-            OpenFileDialog dlg = new OpenFileDialog();
-            dlg.Filter = "XML 文件 (*.xml)|*.xml|所有文件 (*.*)|*.*";
-            dlg.DefaultExt = "xml";
-
-            if (dlg.ShowDialog() == DialogResult.OK)
-            {
-                try
-                {
-                    DrawingDocument doc = XmlShapeSerializer.Load(dlg.FileName);
-                    _canvas.Document.Clear();
-
-                    foreach (ShapeBase shape in doc.Shapes)
-                        _canvas.Document.AddShape(shape);
-                    foreach (Connection conn in doc.Connections)
-                        _canvas.Document.AddConnection(conn);
-
-                    _currentFilePath = dlg.FileName;
-                    _statusLabel.Text = "已打开: " + dlg.FileName;
-                    _canvas.Invalidate();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("打开失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-        }
+        #region Helper Methods
 
         private void UpdateToolState()
         {
-            foreach (ToolStripItem item in _toolStrip.Items)
+            if (_btnSelect != null)
             {
-                ToolStripButton btn = item as ToolStripButton;
-                if (btn != null && (btn.Text == "选择" || btn.Text == "连线"))
-                {
-                    btn.Checked = (btn.Text == "选择" && _canvas.CurrentTool == CanvasTool.Select) ||
-                                  (btn.Text == "连线" && _canvas.CurrentTool == CanvasTool.Connect);
-                }
+                _btnSelect.Checked = (_canvas.CurrentTool == CanvasTool.Select);
+            }
+            if (_btnConnect != null)
+            {
+                _btnConnect.Checked = (_canvas.CurrentTool == CanvasTool.Connect);
             }
         }
 
         private void SetConnectionMode(ConnectionMode mode)
         {
             GlobalConfig.Instance.DefaultConnectionMode = mode;
+
             List<Connection> conns = _canvas.Document.GetSelectedConnections();
             foreach (Connection conn in conns)
             {
                 conn.Mode = mode;
             }
+
+            if (_btnStraight != null)
+                _btnStraight.Checked = (mode == ConnectionMode.Straight);
+            if (_btnCurve != null)
+                _btnCurve.Checked = (mode == ConnectionMode.Curve);
+            if (_btnOrtho != null)
+                _btnOrtho.Checked = (mode == ConnectionMode.Orthogonal);
+
             _canvas.Invalidate();
         }
 
         private void UpdateZoomLabel()
         {
-            _zoomLabel.Text = string.Format("缩放: {0:0}%", _canvas.Zoom * 100);
+            if (_zoomLabel != null)
+            {
+                _zoomLabel.Text = string.Format("缩放: {0:0}%", _canvas.Zoom * 100);
+            }
         }
+
+        #endregion
+
+        #region Canvas Event Handlers
 
         private void OnCanvasSelectionChanged(object sender, EventArgs e)
         {
@@ -903,7 +1105,8 @@ namespace CloudNativeDesigner
                 _propertyGrid.SelectedObject = GlobalConfig.Instance;
             }
 
-            _statusLabel.Text = string.Format("选中: {0} 个实体, {1} 条连线", shapes.Count, conns.Count);
+            _statusLabel.Text = string.Format("选中: {0} 个实体, {1} 条连线",
+                shapes.Count, conns.Count);
         }
 
         private void OnDocumentModified(object sender, EventArgs e)
@@ -914,7 +1117,8 @@ namespace CloudNativeDesigner
         private void OnCanvasMouseMove(object sender, MouseEventArgs e)
         {
             PointF world = _canvas.ScreenToWorld(e.Location);
-            _zoomLabel.Text = string.Format("缩放: {0:0}% | 坐标: ({1:0}, {2:0})", _canvas.Zoom * 100, world.X, world.Y);
+            _zoomLabel.Text = string.Format("缩放: {0:0}% | 坐标: ({1:0}, {2:0})",
+                _canvas.Zoom * 100, world.X, world.Y);
         }
 
         private void OnCanvasMouseClick(object sender, MouseEventArgs e)
@@ -925,50 +1129,100 @@ namespace CloudNativeDesigner
             }
         }
 
+        #endregion
+
+        #region Context Menu
+
         private void ShowContextMenu(Point location)
         {
             ContextMenuStrip menu = new ContextMenuStrip();
 
-            ToolStripMenuItem itemDelete = new ToolStripMenuItem("删除", null, new EventHandler(OnCtxDelete));
+            List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
+            bool hasSingleGenericShape = false;
+            bool supportsMembers = false;
+            GenericShape gs = null;
+
+            if (selectedShapes.Count == 1)
+            {
+                gs = selectedShapes[0] as GenericShape;
+                if (gs != null)
+                {
+                    hasSingleGenericShape = true;
+                    ShapeType st = ShapeTypeRegistry.Instance.GetShapeType(gs.ShapeTypeName);
+                    if (st != null && st.SupportsMembers)
+                    {
+                        supportsMembers = true;
+                    }
+                }
+            }
+
+            if (hasSingleGenericShape && supportsMembers)
+            {
+                ToolStripMenuItem itemAddMember = new ToolStripMenuItem("添加成员",
+                    null, new EventHandler(OnCtxAddMember));
+                ToolStripMenuItem itemSwitchState = new ToolStripMenuItem("切换状态",
+                    null, new EventHandler(OnCtxSwitchState));
+                menu.Items.Add(itemAddMember);
+                menu.Items.Add(itemSwitchState);
+                menu.Items.Add(new ToolStripSeparator());
+            }
+
+            ToolStripMenuItem itemDelete = new ToolStripMenuItem("删除",
+                null, new EventHandler(OnCtxDelete));
             itemDelete.ShortcutKeyDisplayString = "Delete";
-
-            ToolStripMenuItem itemFront = new ToolStripMenuItem("置于顶层", null, new EventHandler(OnCtxFront));
-            ToolStripMenuItem itemBack = new ToolStripMenuItem("置于底层", null, new EventHandler(OnCtxBack));
-
-            ToolStripMenuItem itemAddMember = new ToolStripMenuItem("添加成员", null, new EventHandler(OnCtxAddMember));
-            ToolStripMenuItem itemState = new ToolStripMenuItem("切换状态", null, new EventHandler(OnCtxSwitchState));
-
-            ToolStripSeparator itemSep = new ToolStripSeparator();
-            ToolStripMenuItem itemProps = new ToolStripMenuItem("属性...", null, new EventHandler(OnCtxProps));
-
-            menu.Items.Add(itemAddMember);
-            menu.Items.Add(itemState);
-            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(itemDelete);
-            menu.Items.Add(itemFront);
-            menu.Items.Add(itemBack);
-            menu.Items.Add(itemSep);
+
+            if (selectedShapes.Count > 1)
+            {
+                ToolStripMenuItem itemFront = new ToolStripMenuItem("置顶",
+                    null, new EventHandler(OnCtxFront));
+                ToolStripMenuItem itemBack = new ToolStripMenuItem("置底",
+                    null, new EventHandler(OnCtxBack));
+                menu.Items.Add(itemFront);
+                menu.Items.Add(itemBack);
+            }
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            ToolStripMenuItem itemProps = new ToolStripMenuItem("属性...",
+                null, new EventHandler(OnCtxProps));
             menu.Items.Add(itemProps);
+
             menu.Show(_canvas, location);
         }
 
-        private void OnCtxDelete(object sender, EventArgs e) { _canvas.DeleteSelected(); }
-        private void OnCtxFront(object sender, EventArgs e) { _canvas.BringToFront(); }
-        private void OnCtxBack(object sender, EventArgs e) { _canvas.SendToBack(); }
-        private void OnCtxProps(object sender, EventArgs e) { _propertyGrid.Focus(); }
+        private void OnCtxDelete(object sender, EventArgs e)
+        {
+            _canvas.DeleteSelected();
+        }
+
+        private void OnCtxFront(object sender, EventArgs e)
+        {
+            _canvas.BringToFront();
+        }
+
+        private void OnCtxBack(object sender, EventArgs e)
+        {
+            _canvas.SendToBack();
+        }
+
+        private void OnCtxProps(object sender, EventArgs e)
+        {
+            _propertyGrid.Focus();
+        }
 
         private void OnCtxAddMember(object sender, EventArgs e)
         {
             List<ShapeBase> shapes = _canvas.Document.GetSelectedShapes();
             if (shapes.Count == 1)
             {
-                GenericShape gs = shapes[0] as GenericShape;
-                if (gs != null)
+                GenericShape genericShape = shapes[0] as GenericShape;
+                if (genericShape != null)
                 {
                     ShapeMember m = new ShapeMember();
                     m.Name = "NewMember";
                     m.TypeName = "string";
-                    gs.Members.Add(m);
+                    genericShape.Members.Add(m);
                     _canvas.Invalidate();
                 }
             }
@@ -979,24 +1233,28 @@ namespace CloudNativeDesigner
             List<ShapeBase> shapes = _canvas.Document.GetSelectedShapes();
             if (shapes.Count == 1)
             {
-                GenericShape gs = shapes[0] as GenericShape;
-                if (gs != null && gs.States.Count > 1)
+                GenericShape genericShape = shapes[0] as GenericShape;
+                if (genericShape != null && genericShape.States.Count > 1)
                 {
                     int idx = 0;
-                    for (int i = 0; i < gs.States.Count; i++)
+                    for (int i = 0; i < genericShape.States.Count; i++)
                     {
-                        if (gs.States[i].Name == gs.CurrentStateName)
+                        if (genericShape.States[i].Name == genericShape.CurrentStateName)
                         {
                             idx = i;
                             break;
                         }
                     }
-                    idx = (idx + 1) % gs.States.Count;
-                    gs.CurrentStateName = gs.States[idx].Name;
+                    idx = (idx + 1) % genericShape.States.Count;
+                    genericShape.CurrentStateName = genericShape.States[idx].Name;
                     _canvas.Invalidate();
                 }
             }
         }
+
+        #endregion
+
+        #region Sample Data
 
         private void InitializeSampleData()
         {
@@ -1147,5 +1405,7 @@ namespace CloudNativeDesigner
             _propertyGrid.SelectedObject = GlobalConfig.Instance;
             _canvas.Invalidate();
         }
+
+        #endregion
     }
 }
