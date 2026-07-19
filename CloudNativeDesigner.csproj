@@ -50,6 +50,8 @@
     <Compile Include="Controls\ToolboxPanel.cs" />
     <Compile Include="Controls\DrawingCanvas.cs" />
     <Compile Include="Controls\DrawingCanvas.Rendering.cs" />
+    <Compile Include="Controls\DiagramEditor.cs" />
+    <Compile Include="Controls\DiagramEditor.Commands.cs" />
     <Compile Include="Shapes\GenericShape.cs" />
     <Compile Include="Shapes\ContainerShape.cs" />
     <Compile Include="Serialization\DocumentData.cs" />
