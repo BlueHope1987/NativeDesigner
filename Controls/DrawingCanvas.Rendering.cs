@@ -50,20 +50,57 @@ namespace CloudNativeDesigner.Controls
             Color bgColor = GlobalConfig.Instance.CanvasBackground;
             Color centerColor = GlobalConfig.Instance.GradientCenterColor;
 
-            using (LinearGradientBrush hBrush = new LinearGradientBrush(
-                new PointF(0, 0),
-                new PointF(ClientSize.Width, 0),
-                bgColor,
-                centerColor))
+            int w = ClientSize.Width;
+            int h = ClientSize.Height;
+            if (w <= 0 || h <= 0)
+                return;
+
+            // 底层纯色填充
+            using (SolidBrush bgBrush = new SolidBrush(bgColor))
             {
-                hBrush.WrapMode = WrapMode.Tile;
-                g.FillRectangle(hBrush, 0, 0, ClientSize.Width, ClientSize.Height);
+                g.FillRectangle(bgBrush, 0, 0, w, h);
             }
 
-            float cx = ClientSize.Width / 2f;
-            float cy = ClientSize.Height / 2f;
-            float rw = ClientSize.Width * 0.6f;
-            float rh = ClientSize.Height * 0.6f;
+            // 放射渐变模拟：从右下角到左上角
+            // 用两个线性渐变交叉叠加，再用中心椭圆柔化
+            // 渐变1：水平方向（右侧亮→左侧暗）
+            using (LinearGradientBrush hBrush = new LinearGradientBrush(
+                new PointF(w, 0), new PointF(0, 0),
+                centerColor, bgColor))
+            {
+                hBrush.WrapMode = WrapMode.TileFlipXY;
+                g.FillRectangle(hBrush, 0, 0, w, h);
+            }
+
+            // 渐变2：垂直方向（下方亮→上方暗），半透明叠加
+            using (LinearGradientBrush vBrush = new LinearGradientBrush(
+                new PointF(0, h), new PointF(0, 0),
+                centerColor, bgColor))
+            {
+                using (SolidBrush overlay = new SolidBrush(Color.FromArgb(80,
+                    centerColor.R, centerColor.G, centerColor.B)))
+                {
+                    // 将垂直渐变与半透明色混合
+                    // 这里改用直接绘制带透明度的渐变矩形
+                    Color transCenter = Color.FromArgb(100,
+                        Math.Min(255, centerColor.R + 20),
+                        Math.Min(255, centerColor.G + 20),
+                        Math.Min(255, centerColor.B + 25));
+                    Color transBg = Color.FromArgb(0, bgColor);
+                    using (LinearGradientBrush vBrush2 = new LinearGradientBrush(
+                        new PointF(0, h), new PointF(0, 0),
+                        transCenter, transBg))
+                    {
+                        g.FillRectangle(vBrush2, 0, 0, w, h);
+                    }
+                }
+            }
+
+            // 中心高光椭圆柔化（在右下角）
+            float rw = (float)w * 0.5f;
+            float rh = (float)h * 0.5f;
+            float cx = (float)(w - w * 0.15);
+            float cy = (float)(h - h * 0.15);
             if (rw > 1f && rh > 1f)
             {
                 using (GraphicsPath path = new GraphicsPath())
@@ -71,11 +108,11 @@ namespace CloudNativeDesigner.Controls
                     path.AddEllipse(cx - rw / 2f, cy - rh / 2f, rw, rh);
                     using (PathGradientBrush pgb = new PathGradientBrush(path))
                     {
-                        Color overlayColor = Color.FromArgb(
-                            Math.Min(255, centerColor.R + 10),
-                            Math.Min(255, centerColor.G + 10),
-                            Math.Min(255, centerColor.B + 15));
-                        pgb.CenterColor = overlayColor;
+                        Color highlightColor = Color.FromArgb(
+                            Math.Min(255, centerColor.R + 25),
+                            Math.Min(255, centerColor.G + 25),
+                            Math.Min(255, centerColor.B + 35));
+                        pgb.CenterColor = highlightColor;
                         pgb.SurroundColors = new Color[] { Color.Transparent };
                         pgb.SetSigmaBellShape(0.6f, 1.0f);
                         g.FillPath(pgb, path);

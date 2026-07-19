@@ -26,8 +26,9 @@ namespace CloudNativeDesigner.Controls
         private string _currentFilePath = "";
         private bool _contextMenuEnabled = true;
         private bool _showToolbarText = false;
+        private bool _layoutApplied = false;
 
-        // 视图菜单项字段（由 InjectMenus 动态创建，事件处理中需要引用）
+        // 视图菜单项字段
         private ToolStripMenuItem _menuViewGrid;
         private ToolStripMenuItem _menuViewSnap;
         private ToolStripMenuItem _menuViewToolbar;
@@ -52,10 +53,10 @@ namespace CloudNativeDesigner.Controls
         private ToolStripButton _btnBack;
         private ToolStripButton _btnDelete;
 
-        // 编辑菜单项字段（由 InjectMenus 动态创建，事件处理中需要引用）
+        // 编辑菜单项字段
         private ToolStripMenuItem _menuEditDelete;
 
-        // 图形操作菜单项（注入到宿主菜单）
+        // 图形操作菜单项
         private ToolStripMenuItem _menuShapeAddMember;
         private ToolStripMenuItem _menuShapeSwitchState;
         private ToolStripMenuItem _menuShapeToFront;
@@ -78,22 +79,23 @@ namespace CloudNativeDesigner.Controls
             _mainSplit = new SplitContainer();
             _mainSplit.Dock = DockStyle.Fill;
             _mainSplit.Orientation = Orientation.Vertical;
-            _mainSplit.SplitterDistance = 220;
             _mainSplit.FixedPanel = FixedPanel.Panel1;
-            _mainSplit.BackColor = GlobalConfig.Instance.ToolPanelBackColor;
             _mainSplit.Panel1MinSize = 120;
+            // SplitterDistance 不在此设置，延迟到 OnLayout
 
             _rightSplit = new SplitContainer();
             _rightSplit.Dock = DockStyle.Fill;
             _rightSplit.Orientation = Orientation.Vertical;
             _rightSplit.FixedPanel = FixedPanel.Panel2;
+            _rightSplit.Panel1MinSize = 100;
+            _rightSplit.Panel2MinSize = 100;
+            // SplitterDistance 不在此设置，延迟到 OnLayout
 
             _toolbox = new ToolboxPanel();
             _toolbox.Dock = DockStyle.Fill;
 
             _canvas = new DrawingCanvas();
             _canvas.Dock = DockStyle.Fill;
-            _canvas.BackColor = GlobalConfig.Instance.CanvasBackground;
 
             _propertyGrid = new PropertyGrid();
             _propertyGrid.Dock = DockStyle.Fill;
@@ -110,20 +112,87 @@ namespace CloudNativeDesigner.Controls
             _rightSplit.Panel2.Controls.Add(_propertyGrid);
             _mainSplit.Panel2.Controls.Add(_rightSplit);
 
-            // 先添加 Fill 控件，再添加 Top/Bottom 条带控件
-            // 这样 Dock=Top/Bottom 会从 Fill 控件中挤占空间
             this.Controls.Add(_mainSplit);
             this.Controls.Add(_toolStrip);
             this.Controls.Add(_statusStrip);
 
-            // 延迟设置右侧分栏距离，需要等控件布局完成
-            this.Load += new EventHandler(OnFirstLoad);
+            this.Layout += new LayoutEventHandler(OnEditorLayout);
         }
 
-        private void OnFirstLoad(object sender, EventArgs e)
+        private void OnEditorLayout(object sender, LayoutEventArgs e)
         {
-            _rightSplit.SplitterDistance = _rightSplit.Width - 280;
-            this.Load -= new EventHandler(OnFirstLoad);
+            if (_layoutApplied)
+                return;
+
+            // 等控件有实际尺寸后再设置 SplitterDistance
+            if (this.Width > 50 && this.Height > 50)
+            {
+                ApplySplitterDistances();
+                _layoutApplied = true;
+                this.Layout -= new LayoutEventHandler(OnEditorLayout);
+            }
+        }
+
+        private void ApplySplitterDistances()
+        {
+            // _mainSplit: 工具箱 220px，如果宽度不够则用 1/5
+            SafeSetSplitterDistance(_mainSplit, 220, 0.2f);
+
+            // _rightSplit: 属性栏 280px，如果宽度不够则用 1/3
+            SafeSetSplitterDistance(_rightSplit, 280, 0.66f);
+        }
+
+        private void SafeSetSplitterDistance(SplitContainer split, int desiredPixels, float fallbackRatio)
+        {
+            try
+            {
+                int width = split.Width;
+                if (width <= 0)
+                    return;
+
+                // 检查固定面板方向
+                int min = split.Panel1MinSize;
+                int max = width - split.Panel2MinSize;
+                if (split.FixedPanel == FixedPanel.Panel2)
+                {
+                    // FixedPanel.Panel2: SplitterDistance 从右侧算起
+                    // desiredPixels 是面板2的宽度
+                    int dist = width - desiredPixels;
+                    if (dist < min) dist = min;
+                    if (dist > max) dist = max;
+                    if (dist > 0 && dist < width)
+                    {
+                        split.SplitterDistance = dist;
+                    }
+                    else
+                    {
+                        // 回退：按比例
+                        int fallback = (int)(width * fallbackRatio);
+                        if (fallback >= min && fallback <= max)
+                            split.SplitterDistance = fallback;
+                    }
+                }
+                else
+                {
+                    // FixedPanel.Panel1: SplitterDistance 从左侧算起
+                    if (desiredPixels < min) desiredPixels = min;
+                    if (desiredPixels > max) desiredPixels = max;
+                    if (desiredPixels > 0 && desiredPixels < width)
+                    {
+                        split.SplitterDistance = desiredPixels;
+                    }
+                    else
+                    {
+                        int fallback = (int)(width * fallbackRatio);
+                        if (fallback >= min && fallback <= max)
+                            split.SplitterDistance = fallback;
+                    }
+                }
+            }
+            catch
+            {
+                // 静默忽略，控件仍可正常显示
+            }
         }
 
         private void BuildToolStrip()
@@ -246,7 +315,7 @@ namespace CloudNativeDesigner.Controls
             _propertyGrid.PropertyValueChanged += new PropertyValueChangedEventHandler(OnPropertyValueChanged);
         }
 
-        // ===== 图标创建方法（纯代码绘制16x16图标）=====
+        // ===== 图标创建方法 =====
 
         private Icon CreateLineIcon(bool curved)
         {
@@ -256,13 +325,9 @@ namespace CloudNativeDesigner.Controls
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 if (curved)
-                {
                     g.DrawBezier(pen, 2, 13, 5, 2, 11, 2, 14, 13);
-                }
                 else
-                {
                     g.DrawLine(pen, 2, 13, 14, 2);
-                }
             }
             return Icon.FromHandle(bmp.GetHicon());
         }
@@ -334,7 +399,6 @@ namespace CloudNativeDesigner.Controls
             Bitmap bmp = new Bitmap(16, 16);
             using (Graphics g = Graphics.FromImage(bmp))
             using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
-            using (Brush brush = new SolidBrush(Color.FromArgb(80, 80, 80)))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.DrawPolygon(pen, new PointF[] {
@@ -380,27 +444,234 @@ namespace CloudNativeDesigner.Controls
             get { return _statusStrip; }
         }
 
-        /// <summary>
-        /// 将 MenuStrip 添加到宿主窗体并绑定，使菜单快捷键和渲染在窗体级别生效。
-        /// ToolStrip 和 StatusStrip 保持在 UserControl 内部管理。
-        /// 调用时机：先将 DiagramEditor 添加到 Form.Controls，再调用此方法。
-        /// 宿主应在调用此方法前已创建 MenuStrip 并添加到 Form。
-        /// </summary>
+        public DrawingDocument Document
+        {
+            get { return _canvas.Document; }
+        }
+
+        public string CurrentFilePath
+        {
+            get { return _currentFilePath; }
+            set { _currentFilePath = value; }
+        }
+
+        [Category("面板")]
+        [Description("是否显示工具栏")]
+        public bool ShowToolbar
+        {
+            get { return _toolStrip.Visible; }
+            set
+            {
+                _toolStrip.Visible = value;
+                if (_menuViewToolbar != null)
+                    _menuViewToolbar.Checked = value;
+            }
+        }
+
+        [Category("面板")]
+        [Description("是否显示属性栏")]
+        public bool ShowPropertyPanel
+        {
+            get { return !_rightSplit.Panel2Collapsed; }
+            set
+            {
+                _rightSplit.Panel2Collapsed = !value;
+                if (_menuViewProperty != null)
+                    _menuViewProperty.Checked = value;
+            }
+        }
+
+        [Category("面板")]
+        [Description("是否显示工具箱面板")]
+        public bool ShowToolboxPanel
+        {
+            get { return !_mainSplit.Panel1Collapsed; }
+            set
+            {
+                _mainSplit.Panel1Collapsed = !value;
+                if (_menuViewToolbox != null)
+                    _menuViewToolbox.Checked = value;
+            }
+        }
+
+        [Category("面板")]
+        [Description("是否显示菜单栏")]
+        public bool ShowMenuStrip
+        {
+            get
+            {
+                if (_hostMenu != null) return _hostMenu.Visible;
+                return true;
+            }
+            set
+            {
+                if (_hostMenu != null) _hostMenu.Visible = value;
+            }
+        }
+
+        [Category("面板")]
+        [Description("是否显示状态栏")]
+        public bool ShowStatusBar
+        {
+            get { return _statusStrip.Visible; }
+            set
+            {
+                _statusStrip.Visible = value;
+                if (_menuViewStatusBar != null)
+                    _menuViewStatusBar.Checked = value;
+            }
+        }
+
+        [Category("行为")]
+        [Description("是否启用右键菜单")]
+        public bool ShowContextMenu
+        {
+            get { return _contextMenuEnabled; }
+            set
+            {
+                _contextMenuEnabled = value;
+                if (_menuViewContextMenu != null)
+                    _menuViewContextMenu.Checked = value;
+            }
+        }
+
+        [Category("外观")]
+        [Description("工具栏是否显示文字标签")]
+        public bool ShowToolbarText
+        {
+            get { return _showToolbarText; }
+            set
+            {
+                _showToolbarText = value;
+                if (_menuViewToolbarText != null)
+                    _menuViewToolbarText.Checked = value;
+                ApplyToolbarRenderMode();
+            }
+        }
+
+        [Category("外观")]
+        [Description("编辑器配色主题")]
+        public EditorTheme Theme
+        {
+            get { return GlobalConfig.Instance.Theme; }
+            set
+            {
+                GlobalConfig.Instance.Theme = value;
+                ApplyTheme();
+            }
+        }
+
+        // ===== 公共快捷方法 =====
+
+        public void ZoomIn()
+        {
+            _canvas.Zoom *= 1.2f;
+            UpdateZoomLabel();
+        }
+
+        public void ZoomOut()
+        {
+            _canvas.Zoom /= 1.2f;
+            UpdateZoomLabel();
+        }
+
+        public void ZoomReset()
+        {
+            _canvas.Zoom = 1.0f;
+            _canvas.Offset = new PointF(0, 0);
+            UpdateZoomLabel();
+        }
+
+        public void SetTool(CanvasTool tool)
+        {
+            _canvas.CurrentTool = tool;
+            UpdateToolState();
+        }
+
+        public void SetConnectionMode(ConnectionMode mode)
+        {
+            GlobalConfig.Instance.DefaultConnectionMode = mode;
+            List<Connection> conns = _canvas.Document.GetSelectedConnections();
+            foreach (Connection conn in conns)
+            {
+                conn.Mode = mode;
+            }
+            if (_btnStraight != null)
+                _btnStraight.Checked = (mode == ConnectionMode.Straight);
+            if (_btnCurve != null)
+                _btnCurve.Checked = (mode == ConnectionMode.Curve);
+            if (_btnOrtho != null)
+                _btnOrtho.Checked = (mode == ConnectionMode.Orthogonal);
+            _canvas.Invalidate();
+        }
+
+        public void DeleteSelected()
+        {
+            _canvas.DeleteSelected();
+        }
+
+        public void SelectAll()
+        {
+            foreach (ShapeBase s in _canvas.Document.Shapes)
+                s.Selected = true;
+            _canvas.Invalidate();
+        }
+
+        public new void BringToFront()
+        {
+            _canvas.BringToFront();
+        }
+
+        public new void SendToBack()
+        {
+            _canvas.SendToBack();
+        }
+
+        public void NewDocument()
+        {
+            _canvas.Document.Clear();
+            _currentFilePath = "";
+            _propertyGrid.SelectedObject = GlobalConfig.Instance;
+            _statusLabel.Text = "新建文档";
+            _canvas.Invalidate();
+        }
+
+        public void SaveDocument(string filePath)
+        {
+            if (filePath == null || filePath.Length == 0)
+                return;
+            XmlShapeSerializer.Save(filePath, _canvas.Document);
+            _currentFilePath = filePath;
+            _statusLabel.Text = "已保存: " + filePath;
+        }
+
+        public void LoadDocument(string filePath)
+        {
+            if (filePath == null || filePath.Length == 0)
+                return;
+            DrawingDocument doc = XmlShapeSerializer.Load(filePath);
+            _canvas.Document.Clear();
+            foreach (ShapeBase shape in doc.Shapes)
+                _canvas.Document.AddShape(shape);
+            foreach (Connection conn in doc.Connections)
+                _canvas.Document.AddConnection(conn);
+            _currentFilePath = filePath;
+            _statusLabel.Text = "已打开: " + filePath;
+            _canvas.Invalidate();
+        }
+
+        // ===== 宿主集成 =====
+
         public void ConfigureHostForm(Form parentForm)
         {
             if (parentForm == null)
                 return;
-            // 宿主应在调用此方法前已创建 MenuStrip 并添加到 Form
             if (parentForm.MainMenuStrip != null)
             {
                 _hostMenu = parentForm.MainMenuStrip;
             }
         }
 
-        /// <summary>
-        /// 将控件的功能菜单追加到宿主窗体的 MenuStrip 中。
-        /// 如果宿主已有同名菜单项，会追加到对应菜单下。
-        /// </summary>
         public void ConfigureMenu(MenuStrip hostMenu)
         {
             if (hostMenu == null)
@@ -414,7 +685,6 @@ namespace CloudNativeDesigner.Controls
             if (_hostMenu == null)
                 return;
 
-            // 查找或创建"文件"菜单
             ToolStripMenuItem fileMenu = FindOrCreateMenu(_hostMenu, "文件(&F)");
             fileMenu.DropDownItems.Add(CreateMenuItem("新建", new EventHandler(OnFileNew)));
             fileMenu.DropDownItems.Add(CreateMenuItem("打开...", new EventHandler(OnFileOpen), Keys.Control | Keys.O));
@@ -423,14 +693,12 @@ namespace CloudNativeDesigner.Controls
             fileMenu.DropDownItems.Add(new ToolStripSeparator());
             fileMenu.DropDownItems.Add(CreateMenuItem("退出", new EventHandler(OnFileExit)));
 
-            // 查找或创建"编辑"菜单
             ToolStripMenuItem editMenu = FindOrCreateMenu(_hostMenu, "编辑(&E)");
             _menuEditDelete = CreateMenuItem("删除", new EventHandler(OnEditDelete), Keys.Delete);
             _menuEditDelete.Enabled = false;
             editMenu.DropDownItems.Add(_menuEditDelete);
             editMenu.DropDownItems.Add(CreateMenuItem("全选", new EventHandler(OnEditSelectAll), Keys.Control | Keys.A));
 
-            // 查找或创建"视图"菜单
             ToolStripMenuItem viewMenu = FindOrCreateMenu(_hostMenu, "视图(&V)");
             _menuViewGrid = CreateCheckMenuItem("网格", GlobalConfig.Instance.ShowGrid, new EventHandler(OnViewGrid));
             viewMenu.DropDownItems.Add(_menuViewGrid);
@@ -459,7 +727,6 @@ namespace CloudNativeDesigner.Controls
             viewMenu.DropDownItems.Add(CreateMenuItem("缩小", new EventHandler(OnViewZoomOut)));
             viewMenu.DropDownItems.Add(CreateMenuItem("重置视图", new EventHandler(OnViewReset)));
 
-            // 查找或创建"工具"菜单
             ToolStripMenuItem toolsMenu = FindOrCreateMenu(_hostMenu, "工具(&T)");
             toolsMenu.DropDownItems.Add(CreateMenuItem("选择工具", new EventHandler(OnToolSelect)));
             toolsMenu.DropDownItems.Add(CreateMenuItem("连线工具", new EventHandler(OnToolConnect)));
@@ -468,7 +735,6 @@ namespace CloudNativeDesigner.Controls
             toolsMenu.DropDownItems.Add(CreateMenuItem("曲线模式", new EventHandler(OnToolCurve)));
             toolsMenu.DropDownItems.Add(CreateMenuItem("折线模式", new EventHandler(OnToolOrtho)));
 
-            // 查找或创建"图形"菜单
             ToolStripMenuItem shapeMenu = FindOrCreateMenu(_hostMenu, "图形(&S)");
             _menuShapeAddMember = CreateMenuItem("添加成员", new EventHandler(OnCtxAddMember));
             _menuShapeAddMember.Enabled = false;
@@ -519,230 +785,6 @@ namespace CloudNativeDesigner.Controls
             item.CheckOnClick = true;
             item.Checked = checked_;
             return item;
-        }
-
-        private void UpdateThemeCheckState()
-        {
-            bool isDark = (GlobalConfig.Instance.Theme == EditorTheme.Dark);
-            if (_menuViewThemeLight != null)
-                _menuViewThemeLight.Checked = !isDark;
-            if (_menuViewThemeDark != null)
-                _menuViewThemeDark.Checked = isDark;
-        }
-
-        public DrawingDocument Document
-        {
-            get { return _canvas.Document; }
-        }
-
-        public string CurrentFilePath
-        {
-            get { return _currentFilePath; }
-            set { _currentFilePath = value; }
-        }
-
-        [Category("面板")]
-        [Description("是否显示工具栏")]
-        public bool ShowToolbar
-        {
-            get { return _toolStrip.Visible; }
-            set
-            {
-                _toolStrip.Visible = value;
-                _menuViewToolbar.Checked = value;
-            }
-        }
-
-        [Category("面板")]
-        [Description("是否显示属性栏")]
-        public bool ShowPropertyPanel
-        {
-            get { return !_rightSplit.Panel2Collapsed; }
-            set
-            {
-                _rightSplit.Panel2Collapsed = !value;
-                _menuViewProperty.Checked = value;
-            }
-        }
-
-        [Category("面板")]
-        [Description("是否显示工具箱面板")]
-        public bool ShowToolboxPanel
-        {
-            get { return !_mainSplit.Panel1Collapsed; }
-            set
-            {
-                _mainSplit.Panel1Collapsed = !value;
-                _menuViewToolbox.Checked = value;
-            }
-        }
-
-        [Category("面板")]
-        [Description("是否显示菜单栏")]
-        public bool ShowMenuStrip
-        {
-            get
-            {
-                if (_hostMenu != null) return _hostMenu.Visible;
-                return true;
-            }
-            set
-            {
-                if (_hostMenu != null) _hostMenu.Visible = value;
-            }
-        }
-
-        [Category("面板")]
-        [Description("是否显示状态栏")]
-        public bool ShowStatusBar
-        {
-            get { return _statusStrip.Visible; }
-            set
-            {
-                _statusStrip.Visible = value;
-                _menuViewStatusBar.Checked = value;
-            }
-        }
-
-        [Category("行为")]
-        [Description("是否启用右键菜单")]
-        public bool ShowContextMenu
-        {
-            get { return _contextMenuEnabled; }
-            set
-            {
-                _contextMenuEnabled = value;
-                _menuViewContextMenu.Checked = value;
-            }
-        }
-
-        [Category("外观")]
-        [Description("工具栏是否显示文字标签")]
-        public bool ShowToolbarText
-        {
-            get { return _showToolbarText; }
-            set
-            {
-                _showToolbarText = value;
-                _menuViewToolbarText.Checked = value;
-                ApplyToolbarRenderMode();
-            }
-        }
-
-        [Category("外观")]
-        [Description("编辑器配色主题")]
-        public EditorTheme Theme
-        {
-            get { return GlobalConfig.Instance.Theme; }
-            set
-            {
-                GlobalConfig.Instance.Theme = value;
-                ApplyTheme();
-            }
-        }
-
-        // ===== 公共快捷方法 =====
-
-        public void ZoomIn()
-        {
-            _canvas.Zoom *= 1.2f;
-            UpdateZoomLabel();
-        }
-
-        public void ZoomOut()
-        {
-            _canvas.Zoom /= 1.2f;
-            UpdateZoomLabel();
-        }
-
-        public void ZoomReset()
-        {
-            _canvas.Zoom = 1.0f;
-            _canvas.Offset = new PointF(0, 0);
-            UpdateZoomLabel();
-        }
-
-        public void SetTool(CanvasTool tool)
-        {
-            _canvas.CurrentTool = tool;
-            UpdateToolState();
-        }
-
-        public void SetConnectionMode(ConnectionMode mode)
-        {
-            GlobalConfig.Instance.DefaultConnectionMode = mode;
-
-            List<Connection> conns = _canvas.Document.GetSelectedConnections();
-            foreach (Connection conn in conns)
-            {
-                conn.Mode = mode;
-            }
-
-            if (_btnStraight != null)
-                _btnStraight.Checked = (mode == ConnectionMode.Straight);
-            if (_btnCurve != null)
-                _btnCurve.Checked = (mode == ConnectionMode.Curve);
-            if (_btnOrtho != null)
-                _btnOrtho.Checked = (mode == ConnectionMode.Orthogonal);
-
-            _canvas.Invalidate();
-        }
-
-        public void DeleteSelected()
-        {
-            _canvas.DeleteSelected();
-        }
-
-        public void SelectAll()
-        {
-            foreach (ShapeBase s in _canvas.Document.Shapes)
-                s.Selected = true;
-            _canvas.Invalidate();
-        }
-
-        public new void BringToFront()
-        {
-            _canvas.BringToFront();
-        }
-
-        public new void SendToBack()
-        {
-            _canvas.SendToBack();
-        }
-
-        public void NewDocument()
-        {
-            _canvas.Document.Clear();
-            _currentFilePath = "";
-            _propertyGrid.SelectedObject = GlobalConfig.Instance;
-            _statusLabel.Text = "新建文档";
-            _canvas.Invalidate();
-        }
-
-        public void SaveDocument(string filePath)
-        {
-            if (filePath == null || filePath.Length == 0)
-                return;
-            XmlShapeSerializer.Save(filePath, _canvas.Document);
-            _currentFilePath = filePath;
-            _statusLabel.Text = "已保存: " + filePath;
-        }
-
-        public void LoadDocument(string filePath)
-        {
-            if (filePath == null || filePath.Length == 0)
-                return;
-            DrawingDocument doc = XmlShapeSerializer.Load(filePath);
-            _canvas.Document.Clear();
-
-            foreach (ShapeBase shape in doc.Shapes)
-                _canvas.Document.AddShape(shape);
-            foreach (Connection conn in doc.Connections)
-                _canvas.Document.AddConnection(conn);
-
-            _currentFilePath = filePath;
-            _statusLabel.Text = "已打开: " + filePath;
-            _canvas.Invalidate();
         }
 
         // ===== 事件 =====
@@ -799,7 +841,6 @@ namespace CloudNativeDesigner.Controls
             ToolStripItemDisplayStyle style = _showToolbarText
                 ? ToolStripItemDisplayStyle.ImageAndText
                 : ToolStripItemDisplayStyle.Image;
-
             if (_btnSelect != null) _btnSelect.DisplayStyle = style;
             if (_btnConnect != null) _btnConnect.DisplayStyle = style;
             if (_btnStraight != null) _btnStraight.DisplayStyle = style;
@@ -816,13 +857,9 @@ namespace CloudNativeDesigner.Controls
         public void ApplyTheme()
         {
             EditorTheme theme = GlobalConfig.Instance.Theme;
-
-            _mainSplit.BackColor = GlobalConfig.Instance.ToolPanelBackColor;
-            _canvas.BackColor = GlobalConfig.Instance.CanvasBackground;
-
             bool isDark = (theme == EditorTheme.Dark);
 
-            UpdateThemeCheckState();
+            _mainSplit.BackColor = GlobalConfig.Instance.ToolPanelBackColor;
 
             Color backColor = isDark ? Color.FromArgb(30, 35, 48) : Color.FromArgb(245, 248, 252);
             Color foreColor = isDark ? Color.FromArgb(210, 220, 235) : Color.FromArgb(30, 30, 30);
@@ -841,7 +878,17 @@ namespace CloudNativeDesigner.Controls
             _statusStrip.BackColor = isDark ? Color.FromArgb(25, 30, 42) : Color.FromArgb(240, 242, 248);
             _statusStrip.ForeColor = foreColor;
 
+            UpdateThemeCheckState();
             this.Invalidate(true);
+        }
+
+        private void UpdateThemeCheckState()
+        {
+            bool isDark = (GlobalConfig.Instance.Theme == EditorTheme.Dark);
+            if (_menuViewThemeLight != null)
+                _menuViewThemeLight.Checked = !isDark;
+            if (_menuViewThemeDark != null)
+                _menuViewThemeDark.Checked = isDark;
         }
 
         private void OnPropertyValueChanged(object s, PropertyValueChangedEventArgs e)
@@ -849,8 +896,6 @@ namespace CloudNativeDesigner.Controls
             _canvas.Invalidate();
         }
     }
-
-    // ===== 主题色彩表 =====
 
     internal class MyColorTable : ProfessionalColorTable
     {
