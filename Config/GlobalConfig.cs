@@ -6,6 +6,12 @@ using CloudNativeDesigner.Core;
 
 namespace CloudNativeDesigner.Config
 {
+    public enum EditorTheme
+    {
+        Light,
+        Dark
+    }
+
     [Serializable]
     public class GlobalConfig
     {
@@ -20,10 +26,9 @@ namespace CloudNativeDesigner.Config
         private bool _snapToGrid = true;
         private float _gridSize = 20f;
         private bool _showGrid = true;
-        private Color _gridColor = Color.FromArgb(220, 220, 220);
-        private Color _canvasBackground = Color.White;
         private bool _antiAlias = true;
         private float _defaultZoom = 1.0f;
+        private EditorTheme _theme = EditorTheme.Light;
 
         [Category("连线")]
         [DisplayName("默认连线模式")]
@@ -89,22 +94,6 @@ namespace CloudNativeDesigner.Config
             set { _showGrid = value; NotifyChanged(); }
         }
 
-        [Category("网格")]
-        [DisplayName("网格颜色")]
-        public Color GridColor
-        {
-            get { return _gridColor; }
-            set { _gridColor = value; NotifyChanged(); }
-        }
-
-        [Category("画布")]
-        [DisplayName("背景颜色")]
-        public Color CanvasBackground
-        {
-            get { return _canvasBackground; }
-            set { _canvasBackground = value; NotifyChanged(); }
-        }
-
         [Category("画布")]
         [DisplayName("抗锯齿")]
         public bool AntiAlias
@@ -113,11 +102,128 @@ namespace CloudNativeDesigner.Config
             set { _antiAlias = value; NotifyChanged(); }
         }
 
+        [Category("画布")]
+        [DisplayName("主题")]
+        [Description("编辑器配色主题")]
+        public EditorTheme Theme
+        {
+            get { return _theme; }
+            set
+            {
+                _theme = value;
+                ApplyThemeColors();
+                NotifyChanged();
+            }
+        }
+
         [Browsable(false)]
         public float DefaultZoom
         {
             get { return _defaultZoom; }
             set { _defaultZoom = value; }
+        }
+
+        [Browsable(false)]
+        public Color CanvasBackground
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(25, 30, 50);
+                return Color.FromArgb(235, 242, 250);
+            }
+        }
+
+        [Browsable(false)]
+        public Color GridColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(45, 55, 80);
+                return Color.FromArgb(210, 220, 235);
+            }
+        }
+
+        [Browsable(false)]
+        public Color GradientCenterColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(30, 38, 65);
+                return Color.FromArgb(245, 250, 255);
+            }
+        }
+
+        [Browsable(false)]
+        public Color SelectionColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(80, 160, 255);
+                return Color.FromArgb(0, 120, 215);
+            }
+        }
+
+        [Browsable(false)]
+        public Color ToolPanelBackColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(35, 40, 55);
+                return Color.FromArgb(245, 247, 250);
+            }
+        }
+
+        [Browsable(false)]
+        public Color ToolPanelCategoryColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(60, 70, 95);
+                return Color.FromArgb(225, 230, 240);
+            }
+        }
+
+        [Browsable(false)]
+        public Color ToolPanelTextColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(200, 210, 230);
+                return Color.FromArgb(50, 55, 65);
+            }
+        }
+
+        [Browsable(false)]
+        public Color ToolPanelBorderColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(55, 65, 85);
+                return Color.FromArgb(210, 215, 225);
+            }
+        }
+
+        [Browsable(false)]
+        public Color RubberBandColor
+        {
+            get
+            {
+                if (_theme == EditorTheme.Dark)
+                    return Color.FromArgb(80, 160, 255);
+                return Color.FromArgb(0, 120, 215);
+            }
+        }
+
+        public void ApplyThemeColors()
+        {
         }
 
         public event EventHandler Changed;

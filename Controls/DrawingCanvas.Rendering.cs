@@ -24,11 +24,11 @@ namespace CloudNativeDesigner.Controls
             }
 
             Graphics g = _bufferedGraphics.Graphics;
-            g.Clear(BackColor);
+            DrawBackground(g);
 
             if (GlobalConfig.Instance.AntiAlias)
             {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             }
 
@@ -45,6 +45,45 @@ namespace CloudNativeDesigner.Controls
             _bufferedGraphics.Render(e.Graphics);
         }
 
+        private void DrawBackground(Graphics g)
+        {
+            Color bgColor = GlobalConfig.Instance.CanvasBackground;
+            Color centerColor = GlobalConfig.Instance.GradientCenterColor;
+
+            using (LinearGradientBrush hBrush = new LinearGradientBrush(
+                new PointF(0, 0),
+                new PointF(ClientSize.Width, 0),
+                bgColor,
+                centerColor))
+            {
+                hBrush.WrapMode = WrapMode.Tile;
+                g.FillRectangle(hBrush, 0, 0, ClientSize.Width, ClientSize.Height);
+            }
+
+            float cx = ClientSize.Width / 2f;
+            float cy = ClientSize.Height / 2f;
+            float rw = ClientSize.Width * 0.6f;
+            float rh = ClientSize.Height * 0.6f;
+            if (rw > 1f && rh > 1f)
+            {
+                using (GraphicsPath path = new GraphicsPath())
+                {
+                    path.AddEllipse(cx - rw / 2f, cy - rh / 2f, rw, rh);
+                    using (PathGradientBrush pgb = new PathGradientBrush(path))
+                    {
+                        Color overlayColor = Color.FromArgb(
+                            Math.Min(255, centerColor.R + 10),
+                            Math.Min(255, centerColor.G + 10),
+                            Math.Min(255, centerColor.B + 15));
+                        pgb.CenterColor = overlayColor;
+                        pgb.SurroundColor = Color.Transparent;
+                        pgb.SetSigmaBellShape(0.6f, 1.0f);
+                        g.FillPath(pgb, path);
+                    }
+                }
+            }
+        }
+
         private void DrawGrid(Graphics g)
         {
             if (!GlobalConfig.Instance.ShowGrid)
@@ -59,7 +98,8 @@ namespace CloudNativeDesigner.Controls
             float startX = (float)Math.Floor(left / gridSize) * gridSize;
             float startY = (float)Math.Floor(top / gridSize) * gridSize;
 
-            using (Pen pen = new Pen(GlobalConfig.Instance.GridColor))
+            Color gridColor = GlobalConfig.Instance.GridColor;
+            using (Pen pen = new Pen(gridColor))
             {
                 pen.Width = 0.5f / _zoom;
 
@@ -137,9 +177,10 @@ namespace CloudNativeDesigner.Controls
             if (!_isConnecting)
                 return;
 
-            using (Pen pen = new Pen(Color.FromArgb(0, 120, 215), 1.5f / _zoom))
+            Color rbColor = GlobalConfig.Instance.RubberBandColor;
+            using (Pen pen = new Pen(rbColor, 1.5f / _zoom))
             {
-                pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                pen.DashStyle = DashStyle.Dash;
                 g.DrawLine(pen, _connectStartPoint, _connectCurrentPoint);
             }
         }
@@ -149,12 +190,15 @@ namespace CloudNativeDesigner.Controls
             if (!_isSelecting)
                 return;
 
-            using (Brush brush = new SolidBrush(Color.FromArgb(30, 0, 120, 215)))
-            using (Pen pen = new Pen(Color.FromArgb(0, 120, 215), 1f / _zoom))
+            Color selColor = GlobalConfig.Instance.RubberBandColor;
+            using (Brush brush = new SolidBrush(Color.FromArgb(30,
+                selColor.R, selColor.G, selColor.B)))
+            using (Pen pen = new Pen(selColor, 1f / _zoom))
             {
-                pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                pen.DashStyle = DashStyle.Dash;
                 g.FillRectangle(brush, _selectionRect);
-                g.DrawRectangle(pen, _selectionRect.X, _selectionRect.Y, _selectionRect.Width, _selectionRect.Height);
+                g.DrawRectangle(pen, _selectionRect.X, _selectionRect.Y,
+                    _selectionRect.Width, _selectionRect.Height);
             }
         }
     }

@@ -148,6 +148,23 @@ namespace CloudNativeDesigner.Controls
             ShowContextMenu = !ShowContextMenu;
         }
 
+        private void OnViewToolbarText(object sender, EventArgs e)
+        {
+            ShowToolbarText = !ShowToolbarText;
+        }
+
+        private void OnThemeLight(object sender, EventArgs e)
+        {
+            Theme = EditorTheme.Light;
+            OnThemeChanged(EventArgs.Empty);
+        }
+
+        private void OnThemeDark(object sender, EventArgs e)
+        {
+            Theme = EditorTheme.Dark;
+            OnThemeChanged(EventArgs.Empty);
+        }
+
         private void OnToolSelect(object sender, EventArgs e)
         {
             SetTool(CanvasTool.Select);
