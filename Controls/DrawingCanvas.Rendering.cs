@@ -76,7 +76,7 @@ namespace CloudNativeDesigner.Controls
                             Math.Min(255, centerColor.G + 10),
                             Math.Min(255, centerColor.B + 15));
                         pgb.CenterColor = overlayColor;
-                        pgb.SurroundColor = Color.Transparent;
+                        pgb.SurroundColors = new Color[] { Color.Transparent };
                         pgb.SetSigmaBellShape(0.6f, 1.0f);
                         g.FillPath(pgb, path);
                     }

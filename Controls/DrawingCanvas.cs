@@ -673,7 +673,7 @@ namespace CloudNativeDesigner.Controls
             Invalidate();
         }
 
-        public void BringToFront()
+        public new void BringToFront()
         {
             List<ShapeBase> shapes = _document.GetSelectedShapes();
             foreach (ShapeBase s in shapes)
@@ -681,7 +681,7 @@ namespace CloudNativeDesigner.Controls
             Invalidate();
         }
 
-        public void SendToBack()
+        public new void SendToBack()
         {
             List<ShapeBase> shapes = _document.GetSelectedShapes();
             foreach (ShapeBase s in shapes)

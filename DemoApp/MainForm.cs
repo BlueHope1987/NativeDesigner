@@ -12,12 +12,23 @@ namespace DemoApp
     public class MainForm : Form
     {
         private DiagramEditor _editor;
+        private MenuStrip _menuStrip;
 
         public MainForm()
         {
+            // 创建宿主菜单栏
+            _menuStrip = new MenuStrip();
+            this.MainMenuStrip = _menuStrip;
+            this.Controls.Add(_menuStrip);
+
+            // 创建编辑器控件
             _editor = new DiagramEditor();
             _editor.Dock = DockStyle.Fill;
             this.Controls.Add(_editor);
+
+            // 将控件功能菜单注入宿主菜单栏
+            _editor.ConfigureMenu(_menuStrip);
+            _editor.ConfigureHostForm(this);
 
             this.Text = "云原生可视化设计器 - 演示应用";
             this.Size = new Size(1400, 900);
@@ -25,7 +36,7 @@ namespace DemoApp
             this.Icon = SystemIcons.Application;
 
             InitializeShapeTypes();
-            _editor.Canvas.DocumentChanged += new EventHandler(OnDocumentChanged);
+            _editor.Canvas.Document.DocumentChanged += new EventHandler(OnDocumentChanged);
             InitializeSampleData();
         }
 
@@ -54,7 +65,7 @@ namespace DemoApp
             RegisterContainerType();
             RegisterClassType();
 
-            _editor.Canvas.Toolbox.ReloadFromRegistry();
+            _editor.Toolbox.ReloadFromRegistry();
         }
 
         private void RegisterRectangleType()

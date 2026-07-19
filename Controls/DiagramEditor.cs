@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using CloudNativeDesigner.Config;
 using CloudNativeDesigner.Core;
@@ -17,7 +18,7 @@ namespace CloudNativeDesigner.Controls
         private DrawingCanvas _canvas;
         private ToolboxPanel _toolbox;
         private PropertyGrid _propertyGrid;
-        private MenuStrip _menuStrip;
+        private MenuStrip _hostMenu;
         private ToolStrip _toolStrip;
         private StatusStrip _statusStrip;
         private ToolStripStatusLabel _statusLabel;
@@ -25,37 +26,18 @@ namespace CloudNativeDesigner.Controls
         private string _currentFilePath = "";
         private bool _contextMenuEnabled = true;
         private bool _showToolbarText = false;
-        private int _toolbarRenderMode = 0; // 0=Image, 1=ImageAndText, 2=Text
 
-        // 菜单项字段
-        private ToolStripMenuItem _menuFile;
-        private ToolStripMenuItem _menuEdit;
-        private ToolStripMenuItem _menuView;
-        private ToolStripMenuItem _menuTools;
-        private ToolStripMenuItem _menuFileNew;
-        private ToolStripMenuItem _menuFileOpen;
-        private ToolStripMenuItem _menuFileSave;
-        private ToolStripMenuItem _menuFileSaveAs;
-        private ToolStripMenuItem _menuFileExit;
-        private ToolStripMenuItem _menuEditDelete;
-        private ToolStripMenuItem _menuEditSelectAll;
+        // 视图菜单项字段（由 InjectMenus 动态创建，事件处理中需要引用）
         private ToolStripMenuItem _menuViewGrid;
         private ToolStripMenuItem _menuViewSnap;
-        private ToolStripMenuItem _menuViewZoomIn;
-        private ToolStripMenuItem _menuViewZoomOut;
-        private ToolStripMenuItem _menuViewReset;
         private ToolStripMenuItem _menuViewToolbar;
         private ToolStripMenuItem _menuViewToolbarText;
         private ToolStripMenuItem _menuViewProperty;
         private ToolStripMenuItem _menuViewToolbox;
         private ToolStripMenuItem _menuViewContextMenu;
+        private ToolStripMenuItem _menuViewStatusBar;
         private ToolStripMenuItem _menuViewThemeLight;
         private ToolStripMenuItem _menuViewThemeDark;
-        private ToolStripMenuItem _menuToolSelect;
-        private ToolStripMenuItem _menuToolConnect;
-        private ToolStripMenuItem _menuToolStraight;
-        private ToolStripMenuItem _menuToolCurve;
-        private ToolStripMenuItem _menuToolOrtho;
 
         // 工具栏按钮字段
         private ToolStripButton _btnSelect;
@@ -70,13 +52,21 @@ namespace CloudNativeDesigner.Controls
         private ToolStripButton _btnBack;
         private ToolStripButton _btnDelete;
 
+        // 编辑菜单项字段（由 InjectMenus 动态创建，事件处理中需要引用）
+        private ToolStripMenuItem _menuEditDelete;
+
+        // 图形操作菜单项（注入到宿主菜单）
+        private ToolStripMenuItem _menuShapeAddMember;
+        private ToolStripMenuItem _menuShapeSwitchState;
+        private ToolStripMenuItem _menuShapeToFront;
+        private ToolStripMenuItem _menuShapeToBack;
+
         public DiagramEditor()
         {
             InitializeComponent();
-            BuildLayout();
-            BuildMenuStrip();
             BuildToolStrip();
             BuildStatusBar();
+            BuildLayout();
             WireEvents();
             ApplyTheme();
         }
@@ -92,13 +82,11 @@ namespace CloudNativeDesigner.Controls
             _mainSplit.FixedPanel = FixedPanel.Panel1;
             _mainSplit.BackColor = GlobalConfig.Instance.ToolPanelBackColor;
             _mainSplit.Panel1MinSize = 120;
-            _mainSplit.Panel2MinSize = 200;
 
             _rightSplit = new SplitContainer();
             _rightSplit.Dock = DockStyle.Fill;
             _rightSplit.Orientation = Orientation.Vertical;
             _rightSplit.FixedPanel = FixedPanel.Panel2;
-            _rightSplit.Panel2MinSize = 180;
 
             _toolbox = new ToolboxPanel();
             _toolbox.Dock = DockStyle.Fill;
@@ -122,14 +110,11 @@ namespace CloudNativeDesigner.Controls
             _rightSplit.Panel2.Controls.Add(_propertyGrid);
             _mainSplit.Panel2.Controls.Add(_rightSplit);
 
-            _toolStrip.Dock = DockStyle.Top;
-            _statusStrip.Dock = DockStyle.Bottom;
-
-            this.Controls.Add(_statusStrip);
-            this.Controls.Add(_toolStrip);
-            this.Controls.Add(_menuStrip);
+            // 先添加 Fill 控件，再添加 Top/Bottom 条带控件
+            // 这样 Dock=Top/Bottom 会从 Fill 控件中挤占空间
             this.Controls.Add(_mainSplit);
-            this.MainMenuStrip = _menuStrip;
+            this.Controls.Add(_toolStrip);
+            this.Controls.Add(_statusStrip);
 
             // 延迟设置右侧分栏距离，需要等控件布局完成
             this.Load += new EventHandler(OnFirstLoad);
@@ -141,117 +126,46 @@ namespace CloudNativeDesigner.Controls
             this.Load -= new EventHandler(OnFirstLoad);
         }
 
-        private void BuildMenuStrip()
-        {
-            _menuStrip = new MenuStrip();
-
-            _menuFile = new ToolStripMenuItem("文件(&F)");
-            _menuFileNew = new ToolStripMenuItem("新建", null, new EventHandler(OnFileNew));
-            _menuFileOpen = new ToolStripMenuItem("打开...", null, new EventHandler(OnFileOpen));
-            _menuFileOpen.ShortcutKeys = Keys.Control | Keys.O;
-            _menuFileSave = new ToolStripMenuItem("保存", null, new EventHandler(OnFileSave));
-            _menuFileSave.ShortcutKeys = Keys.Control | Keys.S;
-            _menuFileSaveAs = new ToolStripMenuItem("另存为...", null, new EventHandler(OnFileSaveAs));
-            _menuFileExit = new ToolStripMenuItem("退出", null, new EventHandler(OnFileExit));
-            _menuFile.DropDownItems.Add(_menuFileNew);
-            _menuFile.DropDownItems.Add(_menuFileOpen);
-            _menuFile.DropDownItems.Add(_menuFileSave);
-            _menuFile.DropDownItems.Add(_menuFileSaveAs);
-            _menuFile.DropDownItems.Add(new ToolStripSeparator());
-            _menuFile.DropDownItems.Add(_menuFileExit);
-
-            _menuEdit = new ToolStripMenuItem("编辑(&E)");
-            _menuEditDelete = new ToolStripMenuItem("删除", null, new EventHandler(OnEditDelete));
-            _menuEditDelete.ShortcutKeys = Keys.Delete;
-            _menuEditSelectAll = new ToolStripMenuItem("全选", null, new EventHandler(OnEditSelectAll));
-            _menuEditSelectAll.ShortcutKeys = Keys.Control | Keys.A;
-            _menuEdit.DropDownItems.Add(_menuEditDelete);
-            _menuEdit.DropDownItems.Add(_menuEditSelectAll);
-
-            _menuView = new ToolStripMenuItem("视图(&V)");
-            _menuViewGrid = new ToolStripMenuItem("网格", null, new EventHandler(OnViewGrid));
-            _menuViewGrid.Checked = GlobalConfig.Instance.ShowGrid;
-            _menuViewSnap = new ToolStripMenuItem("对齐", null, new EventHandler(OnViewSnap));
-            _menuViewSnap.Checked = GlobalConfig.Instance.SnapToGrid;
-            _menuViewToolbar = new ToolStripMenuItem("工具栏", null, new EventHandler(OnViewToolbar));
-            _menuViewToolbar.Checked = true;
-            _menuViewToolbarText = new ToolStripMenuItem("工具栏文字", null, new EventHandler(OnViewToolbarText));
-            _menuViewToolbarText.Checked = false;
-            _menuViewProperty = new ToolStripMenuItem("属性栏", null, new EventHandler(OnViewProperty));
-            _menuViewProperty.Checked = true;
-            _menuViewToolbox = new ToolStripMenuItem("工具箱", null, new EventHandler(OnViewToolbox));
-            _menuViewToolbox.Checked = true;
-            _menuViewContextMenu = new ToolStripMenuItem("右键菜单", null, new EventHandler(OnViewContextMenu));
-            _menuViewContextMenu.Checked = true;
-            _menuViewThemeLight = new ToolStripMenuItem("亮色主题", null, new EventHandler(OnThemeLight));
-            _menuViewThemeDark = new ToolStripMenuItem("暗色主题", null, new EventHandler(OnThemeDark));
-            _menuViewZoomIn = new ToolStripMenuItem("放大", null, new EventHandler(OnViewZoomIn));
-            _menuViewZoomOut = new ToolStripMenuItem("缩小", null, new EventHandler(OnViewZoomOut));
-            _menuViewReset = new ToolStripMenuItem("重置视图", null, new EventHandler(OnViewReset));
-            _menuView.DropDownItems.Add(_menuViewGrid);
-            _menuView.DropDownItems.Add(_menuViewSnap);
-            _menuView.DropDownItems.Add(new ToolStripSeparator());
-            _menuView.DropDownItems.Add(_menuViewToolbar);
-            _menuView.DropDownItems.Add(_menuViewToolbarText);
-            _menuView.DropDownItems.Add(_menuViewProperty);
-            _menuView.DropDownItems.Add(_menuViewToolbox);
-            _menuView.DropDownItems.Add(_menuViewContextMenu);
-            _menuView.DropDownItems.Add(new ToolStripSeparator());
-            _menuView.DropDownItems.Add(_menuViewThemeLight);
-            _menuView.DropDownItems.Add(_menuViewThemeDark);
-            _menuView.DropDownItems.Add(new ToolStripSeparator());
-            _menuView.DropDownItems.Add(_menuViewZoomIn);
-            _menuView.DropDownItems.Add(_menuViewZoomOut);
-            _menuView.DropDownItems.Add(_menuViewReset);
-
-            _menuTools = new ToolStripMenuItem("工具(&T)");
-            _menuToolSelect = new ToolStripMenuItem("选择工具", null, new EventHandler(OnToolSelect));
-            _menuToolConnect = new ToolStripMenuItem("连线工具", null, new EventHandler(OnToolConnect));
-            _menuToolStraight = new ToolStripMenuItem("直线模式", null, new EventHandler(OnToolStraight));
-            _menuToolCurve = new ToolStripMenuItem("曲线模式", null, new EventHandler(OnToolCurve));
-            _menuToolOrtho = new ToolStripMenuItem("折线模式", null, new EventHandler(OnToolOrtho));
-            _menuTools.DropDownItems.Add(_menuToolSelect);
-            _menuTools.DropDownItems.Add(_menuToolConnect);
-            _menuTools.DropDownItems.Add(new ToolStripSeparator());
-            _menuTools.DropDownItems.Add(_menuToolStraight);
-            _menuTools.DropDownItems.Add(_menuToolCurve);
-            _menuTools.DropDownItems.Add(_menuToolOrtho);
-
-            _menuStrip.Items.Add(_menuFile);
-            _menuStrip.Items.Add(_menuEdit);
-            _menuStrip.Items.Add(_menuView);
-            _menuStrip.Items.Add(_menuTools);
-        }
-
         private void BuildToolStrip()
         {
             _toolStrip = new ToolStrip();
+            _toolStrip.Dock = DockStyle.Top;
             _toolStrip.GripStyle = ToolStripGripStyle.Hidden;
             _toolStrip.Padding = new Padding(2, 0, 2, 0);
             _toolStrip.ImageScalingSize = new Size(20, 20);
 
-            _btnSelect = new ToolStripButton(SystemIcons.WinLogo, "选择工具");
+            _btnSelect = new ToolStripButton();
+            _btnSelect.Image = Bitmap.FromHicon(SystemIcons.WinLogo.Handle);
+            _btnSelect.Text = "选择工具";
             _btnSelect.CheckOnClick = true;
             _btnSelect.Checked = true;
             _btnSelect.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnSelect.ToolTipText = "选择工具 (V)";
 
-            _btnConnect = new ToolStripButton(SystemIcons.Warning, "连线工具");
+            _btnConnect = new ToolStripButton();
+            _btnConnect.Image = Bitmap.FromHicon(SystemIcons.Warning.Handle);
+            _btnConnect.Text = "连线工具";
             _btnConnect.CheckOnClick = true;
             _btnConnect.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnConnect.ToolTipText = "连线工具 (L)";
 
-            _btnStraight = new ToolStripButton(CreateLineIcon(false), "直线模式");
+            _btnStraight = new ToolStripButton();
+            _btnStraight.Image = Bitmap.FromHicon(CreateLineIcon(false).Handle);
+            _btnStraight.Text = "直线模式";
             _btnStraight.CheckOnClick = true;
             _btnStraight.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnStraight.ToolTipText = "直线模式";
 
-            _btnCurve = new ToolStripButton(CreateCurveIcon(), "曲线模式");
+            _btnCurve = new ToolStripButton();
+            _btnCurve.Image = Bitmap.FromHicon(CreateCurveIcon().Handle);
+            _btnCurve.Text = "曲线模式";
             _btnCurve.CheckOnClick = true;
             _btnCurve.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnCurve.ToolTipText = "曲线模式";
 
-            _btnOrtho = new ToolStripButton(CreateOrthoIcon(), "折线模式");
+            _btnOrtho = new ToolStripButton();
+            _btnOrtho.Image = Bitmap.FromHicon(CreateOrthoIcon().Handle);
+            _btnOrtho.Text = "折线模式";
             _btnOrtho.CheckOnClick = true;
             _btnOrtho.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnOrtho.ToolTipText = "折线模式";
@@ -264,15 +178,21 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.Items.Add(_btnOrtho);
             _toolStrip.Items.Add(new ToolStripSeparator());
 
-            _btnZoomIn = new ToolStripButton(CreateZoomInIcon(), "放大");
+            _btnZoomIn = new ToolStripButton();
+            _btnZoomIn.Image = Bitmap.FromHicon(CreateZoomInIcon().Handle);
+            _btnZoomIn.Text = "放大";
             _btnZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnZoomIn.ToolTipText = "放大 (+)";
 
-            _btnZoomOut = new ToolStripButton(CreateZoomOutIcon(), "缩小");
+            _btnZoomOut = new ToolStripButton();
+            _btnZoomOut.Image = Bitmap.FromHicon(CreateZoomOutIcon().Handle);
+            _btnZoomOut.Text = "缩小";
             _btnZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnZoomOut.ToolTipText = "缩小 (-)";
 
-            _btnFit = new ToolStripButton(CreateFitIcon(), "适应视图");
+            _btnFit = new ToolStripButton();
+            _btnFit.Image = Bitmap.FromHicon(CreateFitIcon().Handle);
+            _btnFit.Text = "适应视图";
             _btnFit.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnFit.ToolTipText = "重置视图";
 
@@ -281,11 +201,15 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.Items.Add(_btnFit);
             _toolStrip.Items.Add(new ToolStripSeparator());
 
-            _btnFront = new ToolStripButton(CreateTopIcon(), "置顶");
+            _btnFront = new ToolStripButton();
+            _btnFront.Image = Bitmap.FromHicon(CreateTopIcon().Handle);
+            _btnFront.Text = "置顶";
             _btnFront.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnFront.ToolTipText = "置于顶层";
 
-            _btnBack = new ToolStripButton(CreateBottomIcon(), "置底");
+            _btnBack = new ToolStripButton();
+            _btnBack.Image = Bitmap.FromHicon(CreateBottomIcon().Handle);
+            _btnBack.Text = "置底";
             _btnBack.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnBack.ToolTipText = "置于底层";
 
@@ -293,7 +217,9 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.Items.Add(_btnBack);
             _toolStrip.Items.Add(new ToolStripSeparator());
 
-            _btnDelete = new ToolStripButton(SystemIcons.Delete, "删除");
+            _btnDelete = new ToolStripButton();
+            _btnDelete.Image = Bitmap.FromHicon(SystemIcons.Hand.Handle);
+            _btnDelete.Text = "删除";
             _btnDelete.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnDelete.ToolTipText = "删除选中 (Delete)";
 
@@ -303,6 +229,7 @@ namespace CloudNativeDesigner.Controls
         private void BuildStatusBar()
         {
             _statusStrip = new StatusStrip();
+            _statusStrip.Dock = DockStyle.Bottom;
             _statusLabel = new ToolStripStatusLabel("就绪");
             _zoomLabel = new ToolStripStatusLabel("缩放: 100%");
             _statusStrip.Items.Add(_statusLabel);
@@ -438,6 +365,171 @@ namespace CloudNativeDesigner.Controls
             get { return _canvas; }
         }
 
+        public ToolboxPanel Toolbox
+        {
+            get { return _toolbox; }
+        }
+
+        public ToolStrip ToolStrip
+        {
+            get { return _toolStrip; }
+        }
+
+        public StatusStrip StatusStrip
+        {
+            get { return _statusStrip; }
+        }
+
+        /// <summary>
+        /// 将 MenuStrip 添加到宿主窗体并绑定，使菜单快捷键和渲染在窗体级别生效。
+        /// ToolStrip 和 StatusStrip 保持在 UserControl 内部管理。
+        /// 调用时机：先将 DiagramEditor 添加到 Form.Controls，再调用此方法。
+        /// 宿主应在调用此方法前已创建 MenuStrip 并添加到 Form。
+        /// </summary>
+        public void ConfigureHostForm(Form parentForm)
+        {
+            if (parentForm == null)
+                return;
+            // 宿主应在调用此方法前已创建 MenuStrip 并添加到 Form
+            if (parentForm.MainMenuStrip != null)
+            {
+                _hostMenu = parentForm.MainMenuStrip;
+            }
+        }
+
+        /// <summary>
+        /// 将控件的功能菜单追加到宿主窗体的 MenuStrip 中。
+        /// 如果宿主已有同名菜单项，会追加到对应菜单下。
+        /// </summary>
+        public void ConfigureMenu(MenuStrip hostMenu)
+        {
+            if (hostMenu == null)
+                return;
+            _hostMenu = hostMenu;
+            InjectMenus();
+        }
+
+        private void InjectMenus()
+        {
+            if (_hostMenu == null)
+                return;
+
+            // 查找或创建"文件"菜单
+            ToolStripMenuItem fileMenu = FindOrCreateMenu(_hostMenu, "文件(&F)");
+            fileMenu.DropDownItems.Add(CreateMenuItem("新建", new EventHandler(OnFileNew)));
+            fileMenu.DropDownItems.Add(CreateMenuItem("打开...", new EventHandler(OnFileOpen), Keys.Control | Keys.O));
+            fileMenu.DropDownItems.Add(CreateMenuItem("保存", new EventHandler(OnFileSave), Keys.Control | Keys.S));
+            fileMenu.DropDownItems.Add(CreateMenuItem("另存为...", new EventHandler(OnFileSaveAs)));
+            fileMenu.DropDownItems.Add(new ToolStripSeparator());
+            fileMenu.DropDownItems.Add(CreateMenuItem("退出", new EventHandler(OnFileExit)));
+
+            // 查找或创建"编辑"菜单
+            ToolStripMenuItem editMenu = FindOrCreateMenu(_hostMenu, "编辑(&E)");
+            _menuEditDelete = CreateMenuItem("删除", new EventHandler(OnEditDelete), Keys.Delete);
+            _menuEditDelete.Enabled = false;
+            editMenu.DropDownItems.Add(_menuEditDelete);
+            editMenu.DropDownItems.Add(CreateMenuItem("全选", new EventHandler(OnEditSelectAll), Keys.Control | Keys.A));
+
+            // 查找或创建"视图"菜单
+            ToolStripMenuItem viewMenu = FindOrCreateMenu(_hostMenu, "视图(&V)");
+            _menuViewGrid = CreateCheckMenuItem("网格", GlobalConfig.Instance.ShowGrid, new EventHandler(OnViewGrid));
+            viewMenu.DropDownItems.Add(_menuViewGrid);
+            _menuViewSnap = CreateCheckMenuItem("对齐", GlobalConfig.Instance.SnapToGrid, new EventHandler(OnViewSnap));
+            viewMenu.DropDownItems.Add(_menuViewSnap);
+            viewMenu.DropDownItems.Add(new ToolStripSeparator());
+            _menuViewToolbar = CreateCheckMenuItem("工具栏", true, new EventHandler(OnViewToolbar));
+            viewMenu.DropDownItems.Add(_menuViewToolbar);
+            _menuViewToolbarText = CreateCheckMenuItem("工具栏文字", false, new EventHandler(OnViewToolbarText));
+            viewMenu.DropDownItems.Add(_menuViewToolbarText);
+            _menuViewProperty = CreateCheckMenuItem("属性栏", true, new EventHandler(OnViewProperty));
+            viewMenu.DropDownItems.Add(_menuViewProperty);
+            _menuViewToolbox = CreateCheckMenuItem("工具箱", true, new EventHandler(OnViewToolbox));
+            viewMenu.DropDownItems.Add(_menuViewToolbox);
+            _menuViewContextMenu = CreateCheckMenuItem("右键菜单", true, new EventHandler(OnViewContextMenu));
+            viewMenu.DropDownItems.Add(_menuViewContextMenu);
+            _menuViewStatusBar = CreateCheckMenuItem("状态栏", true, new EventHandler(OnViewStatusBar));
+            viewMenu.DropDownItems.Add(_menuViewStatusBar);
+            viewMenu.DropDownItems.Add(new ToolStripSeparator());
+            _menuViewThemeLight = CreateCheckMenuItem("亮色主题", true, new EventHandler(OnThemeLight));
+            viewMenu.DropDownItems.Add(_menuViewThemeLight);
+            _menuViewThemeDark = CreateCheckMenuItem("暗色主题", false, new EventHandler(OnThemeDark));
+            viewMenu.DropDownItems.Add(_menuViewThemeDark);
+            viewMenu.DropDownItems.Add(new ToolStripSeparator());
+            viewMenu.DropDownItems.Add(CreateMenuItem("放大", new EventHandler(OnViewZoomIn)));
+            viewMenu.DropDownItems.Add(CreateMenuItem("缩小", new EventHandler(OnViewZoomOut)));
+            viewMenu.DropDownItems.Add(CreateMenuItem("重置视图", new EventHandler(OnViewReset)));
+
+            // 查找或创建"工具"菜单
+            ToolStripMenuItem toolsMenu = FindOrCreateMenu(_hostMenu, "工具(&T)");
+            toolsMenu.DropDownItems.Add(CreateMenuItem("选择工具", new EventHandler(OnToolSelect)));
+            toolsMenu.DropDownItems.Add(CreateMenuItem("连线工具", new EventHandler(OnToolConnect)));
+            toolsMenu.DropDownItems.Add(new ToolStripSeparator());
+            toolsMenu.DropDownItems.Add(CreateMenuItem("直线模式", new EventHandler(OnToolStraight)));
+            toolsMenu.DropDownItems.Add(CreateMenuItem("曲线模式", new EventHandler(OnToolCurve)));
+            toolsMenu.DropDownItems.Add(CreateMenuItem("折线模式", new EventHandler(OnToolOrtho)));
+
+            // 查找或创建"图形"菜单
+            ToolStripMenuItem shapeMenu = FindOrCreateMenu(_hostMenu, "图形(&S)");
+            _menuShapeAddMember = CreateMenuItem("添加成员", new EventHandler(OnCtxAddMember));
+            _menuShapeAddMember.Enabled = false;
+            shapeMenu.DropDownItems.Add(_menuShapeAddMember);
+            _menuShapeSwitchState = CreateMenuItem("切换状态", new EventHandler(OnCtxSwitchState));
+            _menuShapeSwitchState.Enabled = false;
+            shapeMenu.DropDownItems.Add(_menuShapeSwitchState);
+            shapeMenu.DropDownItems.Add(new ToolStripSeparator());
+            _menuShapeToFront = CreateMenuItem("置顶", new EventHandler(OnBringToFront));
+            _menuShapeToFront.Enabled = false;
+            shapeMenu.DropDownItems.Add(_menuShapeToFront);
+            _menuShapeToBack = CreateMenuItem("置底", new EventHandler(OnSendToBack));
+            _menuShapeToBack.Enabled = false;
+            shapeMenu.DropDownItems.Add(_menuShapeToBack);
+
+            UpdateThemeCheckState();
+        }
+
+        private ToolStripMenuItem FindOrCreateMenu(MenuStrip menuStrip, string text)
+        {
+            foreach (ToolStripItem item in menuStrip.Items)
+            {
+                ToolStripMenuItem m = item as ToolStripMenuItem;
+                if (m != null && m.Text == text)
+                    return m;
+            }
+            ToolStripMenuItem newMenu = new ToolStripMenuItem(text);
+            menuStrip.Items.Add(newMenu);
+            return newMenu;
+        }
+
+        private ToolStripMenuItem CreateMenuItem(string text, EventHandler handler)
+        {
+            return CreateMenuItem(text, handler, Keys.None);
+        }
+
+        private ToolStripMenuItem CreateMenuItem(string text, EventHandler handler, Keys shortcutKeys)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text, null, handler);
+            if (shortcutKeys != Keys.None)
+                item.ShortcutKeys = shortcutKeys;
+            return item;
+        }
+
+        private ToolStripMenuItem CreateCheckMenuItem(string text, bool checked_, EventHandler handler)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text, null, handler);
+            item.CheckOnClick = true;
+            item.Checked = checked_;
+            return item;
+        }
+
+        private void UpdateThemeCheckState()
+        {
+            bool isDark = (GlobalConfig.Instance.Theme == EditorTheme.Dark);
+            if (_menuViewThemeLight != null)
+                _menuViewThemeLight.Checked = !isDark;
+            if (_menuViewThemeDark != null)
+                _menuViewThemeDark.Checked = isDark;
+        }
+
         public DrawingDocument Document
         {
             get { return _canvas.Document; }
@@ -489,8 +581,15 @@ namespace CloudNativeDesigner.Controls
         [Description("是否显示菜单栏")]
         public bool ShowMenuStrip
         {
-            get { return _menuStrip.Visible; }
-            set { _menuStrip.Visible = value; }
+            get
+            {
+                if (_hostMenu != null) return _hostMenu.Visible;
+                return true;
+            }
+            set
+            {
+                if (_hostMenu != null) _hostMenu.Visible = value;
+            }
         }
 
         [Category("面板")]
@@ -498,7 +597,11 @@ namespace CloudNativeDesigner.Controls
         public bool ShowStatusBar
         {
             get { return _statusStrip.Visible; }
-            set { _statusStrip.Visible = value; }
+            set
+            {
+                _statusStrip.Visible = value;
+                _menuViewStatusBar.Checked = value;
+            }
         }
 
         [Category("行为")]
@@ -597,12 +700,12 @@ namespace CloudNativeDesigner.Controls
             _canvas.Invalidate();
         }
 
-        public void BringToFront()
+        public new void BringToFront()
         {
             _canvas.BringToFront();
         }
 
-        public void SendToBack()
+        public new void SendToBack()
         {
             _canvas.SendToBack();
         }
@@ -719,8 +822,7 @@ namespace CloudNativeDesigner.Controls
 
             bool isDark = (theme == EditorTheme.Dark);
 
-            _menuViewThemeLight.Checked = !isDark;
-            _menuViewThemeDark.Checked = isDark;
+            UpdateThemeCheckState();
 
             Color backColor = isDark ? Color.FromArgb(30, 35, 48) : Color.FromArgb(245, 248, 252);
             Color foreColor = isDark ? Color.FromArgb(210, 220, 235) : Color.FromArgb(30, 30, 30);
@@ -729,9 +831,12 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.ForeColor = foreColor;
             _toolStrip.Renderer = new ToolStripProfessionalRenderer(new MyColorTable(isDark));
 
-            _menuStrip.BackColor = backColor;
-            _menuStrip.ForeColor = foreColor;
-            _menuStrip.Renderer = new ToolStripProfessionalRenderer(new MyColorTable(isDark));
+            if (_hostMenu != null)
+            {
+                _hostMenu.BackColor = backColor;
+                _hostMenu.ForeColor = foreColor;
+                _hostMenu.Renderer = new ToolStripProfessionalRenderer(new MyColorTable(isDark));
+            }
 
             _statusStrip.BackColor = isDark ? Color.FromArgb(25, 30, 42) : Color.FromArgb(240, 242, 248);
             _statusStrip.ForeColor = foreColor;

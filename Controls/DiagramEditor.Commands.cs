@@ -148,6 +148,11 @@ namespace CloudNativeDesigner.Controls
             ShowContextMenu = !ShowContextMenu;
         }
 
+        private void OnViewStatusBar(object sender, EventArgs e)
+        {
+            ShowStatusBar = !ShowStatusBar;
+        }
+
         private void OnViewToolbarText(object sender, EventArgs e)
         {
             ShowToolbarText = !ShowToolbarText;
@@ -280,6 +285,8 @@ namespace CloudNativeDesigner.Controls
 
             _statusLabel.Text = string.Format("选中: {0} 个实体, {1} 条连线",
                 shapes.Count, conns.Count);
+
+            UpdateMenuAvailability();
         }
 
         private void OnDocumentModified(object sender, EventArgs e)
@@ -298,15 +305,51 @@ namespace CloudNativeDesigner.Controls
         {
             if (e.Button == MouseButtons.Right && _contextMenuEnabled)
             {
-                ShowContextMenu(e.Location);
+                ShowCanvasContextMenu(e.Location);
             }
         }
 
         #endregion
 
+        private void UpdateMenuAvailability()
+        {
+            List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
+            bool hasSelection = (selectedShapes.Count > 0);
+
+            if (_menuEditDelete != null)
+                _menuEditDelete.Enabled = hasSelection;
+
+            if (_menuShapeToFront != null)
+                _menuShapeToFront.Enabled = hasSelection;
+            if (_menuShapeToBack != null)
+                _menuShapeToBack.Enabled = hasSelection;
+
+            bool canAddMember = false;
+            bool canSwitchState = false;
+
+            if (selectedShapes.Count == 1)
+            {
+                GenericShape gs = selectedShapes[0] as GenericShape;
+                if (gs != null)
+                {
+                    ShapeType st = ShapeTypeRegistry.Instance.GetShapeType(gs.ShapeTypeName);
+                    if (st != null && st.SupportsMembers)
+                    {
+                        canAddMember = true;
+                        canSwitchState = (gs.States.Count > 1);
+                    }
+                }
+            }
+
+            if (_menuShapeAddMember != null)
+                _menuShapeAddMember.Enabled = canAddMember;
+            if (_menuShapeSwitchState != null)
+                _menuShapeSwitchState.Enabled = canSwitchState;
+        }
+
         #region 右键菜单
 
-        private void ShowContextMenu(Point location)
+        private void ShowCanvasContextMenu(Point location)
         {
             ContextMenuStrip menu = new ContextMenuStrip();
 
