@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 using CloudNativeDesigner.Config;
 using CloudNativeDesigner.Controls;
@@ -13,6 +14,7 @@ namespace DemoApp
     {
         private DiagramEditor _editor;
         private MenuStrip _menuStrip;
+        private string _currentFilePath = "";
 
         public MainForm()
         {
@@ -26,7 +28,10 @@ namespace DemoApp
             this.MainMenuStrip = _menuStrip;
             this.Controls.Add(_menuStrip);
 
-            // 3. 控件会自动通过 ParentChanged 枚举宿主菜单并注入
+            // 3. 宿主自行构建文件菜单
+            BuildFileMenu();
+
+            // 4. 控件会自动注入其余菜单（编辑/视图/工具/图形）
 
             this.Text = "云原生可视化设计器 - 演示应用";
             this.Size = new Size(1400, 900);
@@ -37,6 +42,109 @@ namespace DemoApp
             _editor.Canvas.Document.DocumentChanged += new EventHandler(OnDocumentChanged);
             InitializeSampleData();
         }
+
+        #region File Menu
+
+        private void BuildFileMenu()
+        {
+            ToolStripMenuItem fileMenu = new ToolStripMenuItem("文件(&F)");
+            fileMenu.DropDownItems.Add(new ToolStripMenuItem("新建", null, new EventHandler(OnFileNew)));
+            fileMenu.DropDownItems.Add(new ToolStripMenuItem("打开...", null, new EventHandler(OnFileOpen), Keys.Control | Keys.O));
+            fileMenu.DropDownItems.Add(new ToolStripMenuItem("保存", null, new EventHandler(OnFileSave), Keys.Control | Keys.S));
+            fileMenu.DropDownItems.Add(new ToolStripMenuItem("另存为...", null, new EventHandler(OnFileSaveAs)));
+            fileMenu.DropDownItems.Add(new ToolStripSeparator());
+            fileMenu.DropDownItems.Add(new ToolStripMenuItem("退出", null, new EventHandler(OnFileExit)));
+            _menuStrip.Items.Add(fileMenu);
+        }
+
+        private void OnFileNew(object sender, EventArgs e)
+        {
+            _editor.ClearDocument();
+            _currentFilePath = "";
+            UpdateTitle();
+        }
+
+        private void OnFileOpen(object sender, EventArgs e)
+        {
+            using (OpenFileDialog dlg = new OpenFileDialog())
+            {
+                dlg.Filter = "XML 文件 (*.xml)|*.xml|所有文件 (*.*)|*.*";
+                dlg.DefaultExt = "xml";
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+
+                try
+                {
+                    DrawingDocument doc = XmlShapeSerializer.Load(dlg.FileName);
+                    _editor.SetDocument(doc);
+                    _currentFilePath = dlg.FileName;
+                    UpdateTitle();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("打开失败: " + ex.Message, "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void OnFileSave(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(_currentFilePath))
+            {
+                OnFileSaveAs(sender, e);
+                return;
+            }
+            try
+            {
+                XmlShapeSerializer.Save(_currentFilePath, _editor.GetDocument());
+                UpdateTitle();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("保存失败: " + ex.Message, "错误",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void OnFileSaveAs(object sender, EventArgs e)
+        {
+            using (SaveFileDialog dlg = new SaveFileDialog())
+            {
+                dlg.Filter = "XML 文件 (*.xml)|*.xml|所有文件 (*.*)|*.*";
+                dlg.DefaultExt = "xml";
+                if (!string.IsNullOrEmpty(_currentFilePath))
+                    dlg.FileName = _currentFilePath;
+
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+
+                try
+                {
+                    XmlShapeSerializer.Save(dlg.FileName, _editor.GetDocument());
+                    _currentFilePath = dlg.FileName;
+                    UpdateTitle();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("保存失败: " + ex.Message, "错误",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void OnFileExit(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void UpdateTitle()
+        {
+            if (string.IsNullOrEmpty(_currentFilePath))
+                this.Text = "云原生可视化设计器 - 演示应用";
+            else
+                this.Text = "云原生可视化设计器 - " + Path.GetFileName(_currentFilePath);
+        }
+
+        #endregion
 
         private void OnDocumentChanged(object sender, EventArgs e)
         {
@@ -49,544 +157,28 @@ namespace DemoApp
         {
             ShapeTypeRegistry.Instance.Clear();
 
-            RegisterRectangleType();
-            RegisterEllipseType();
-            RegisterDiamondType();
-            RegisterHexagonType();
-            RegisterCloudType();
-            RegisterDatabaseType();
-            RegisterStartEndType();
-            RegisterDocumentType();
-            RegisterUserType();
-            RegisterNoteType();
-            RegisterComponentType();
-            RegisterContainerType();
-            RegisterClassType();
+            // 方式1：一键注册全部内置图形（44+ 图形）
+            ShapeLibrary.RegisterAll();
+
+            // 方式2：也可按需选择性注册
+            // ShapeLibrary.RegisterCategory("基本图形");
+            // ShapeLibrary.RegisterCategory("流程图");
+            // ShapeLibrary.RegisterCategory("云原生");
+            // ShapeLibrary.RegisterCategory("UML");
+            // ShapeLibrary.RegisterCategory("网络");
+            // ShapeLibrary.Register(
+            //     ShapeLibrary.Rectangle,
+            //     ShapeLibrary.Ellipse,
+            //     ShapeLibrary.Cloud,
+            //     ShapeLibrary.Database
+            // );
+
+            // 方式3：组合自定义图形（视觉叠加）
+            // ShapeType custom = ShapeComposer.Union("集群", "自定义",
+            //     ShapeLibrary.Cloud, ShapeLibrary.Server);
+            // ShapeTypeRegistry.Instance.Register(custom);
 
             _editor.Toolbox.ReloadFromRegistry();
-        }
-
-        private void RegisterRectangleType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "矩形";
-            t.Category = "基本图形";
-            t.Description = "圆角矩形";
-            t.DefaultWidth = 140;
-            t.DefaultHeight = 90;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(230, 245, 255));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(60, 130, 200));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.RoundedRect;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.CornerRadius = 6f;
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            RenderCommand txt = new RenderCommand();
-            txt.CommandType = RenderCommandType.Text;
-            txt.X = 0f; txt.Y = 0f;
-            txt.Width = 1f; txt.Height = 0.35f;
-            txt.Text = "";
-            txt.TextAlign = "center";
-            txt.FontSize = 10f;
-            txt.IsBold = false;
-            txt.UseShapeColors = true;
-            t.RenderCommands.Add(txt);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterEllipseType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "椭圆";
-            t.Category = "基本图形";
-            t.Description = "椭圆形";
-            t.DefaultWidth = 120;
-            t.DefaultHeight = 100;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(255, 240, 230));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(200, 130, 60));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.Ellipse;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            RenderCommand txt = new RenderCommand();
-            txt.CommandType = RenderCommandType.Text;
-            txt.X = 0f; txt.Y = 0f;
-            txt.Width = 1f; txt.Height = 0.35f;
-            txt.Text = "";
-            txt.TextAlign = "center";
-            txt.FontSize = 10f;
-            txt.UseShapeColors = true;
-            t.RenderCommands.Add(txt);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterDiamondType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "菱形";
-            t.Category = "基本图形";
-            t.Description = "菱形决策节点";
-            t.DefaultWidth = 120;
-            t.DefaultHeight = 100;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(230, 255, 240));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(60, 180, 100));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.Polygon;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.PolygonPoints = new PointF[] {
-                new PointF(0.5f, 0f),
-                new PointF(1f, 0.5f),
-                new PointF(0.5f, 1f),
-                new PointF(0f, 0.5f)
-            };
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            RenderCommand txt = new RenderCommand();
-            txt.CommandType = RenderCommandType.Text;
-            txt.X = 0f; txt.Y = 0f;
-            txt.Width = 1f; txt.Height = 0.35f;
-            txt.Text = "";
-            txt.TextAlign = "center";
-            txt.FontSize = 10f;
-            txt.UseShapeColors = true;
-            t.RenderCommands.Add(txt);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterHexagonType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "六边形";
-            t.Category = "基本图形";
-            t.Description = "正六边形";
-            t.DefaultWidth = 130;
-            t.DefaultHeight = 110;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(240, 230, 255));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(130, 60, 200));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.Polygon;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.PolygonPoints = new PointF[] {
-                new PointF(0.25f, 0f),
-                new PointF(0.75f, 0f),
-                new PointF(1f, 0.5f),
-                new PointF(0.75f, 1f),
-                new PointF(0.25f, 1f),
-                new PointF(0f, 0.5f)
-            };
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterCloudType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "云";
-            t.Category = "云原生";
-            t.Description = "云计算节点";
-            t.DefaultWidth = 160;
-            t.DefaultHeight = 100;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(240, 248, 255));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(0, 120, 215));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.Polygon;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.PolygonPoints = new PointF[] {
-                new PointF(0.20f, 0.65f),
-                new PointF(0.08f, 0.55f),
-                new PointF(0.12f, 0.35f),
-                new PointF(0.30f, 0.25f),
-                new PointF(0.45f, 0.15f),
-                new PointF(0.65f, 0.15f),
-                new PointF(0.80f, 0.25f),
-                new PointF(0.92f, 0.35f),
-                new PointF(0.90f, 0.55f),
-                new PointF(0.78f, 0.65f),
-                new PointF(0.65f, 0.70f),
-                new PointF(0.35f, 0.70f)
-            };
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterDatabaseType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "数据库";
-            t.Category = "云原生";
-            t.Description = "圆柱体数据库";
-            t.DefaultWidth = 130;
-            t.DefaultHeight = 120;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(230, 245, 255));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(60, 100, 180));
-            t.SupportsMembers = true;
-
-            float topY = 0.08f;
-            float midY = 0.55f;
-            float botY = 0.92f;
-
-            RenderCommand body = new RenderCommand();
-            body.CommandType = RenderCommandType.Polygon;
-            body.X = 0f; body.Y = 0f;
-            body.Width = 1f; body.Height = 1f;
-            body.PolygonPoints = new PointF[] {
-                new PointF(0.10f, topY),
-                new PointF(0.90f, topY),
-                new PointF(0.90f, botY),
-                new PointF(0.10f, botY)
-            };
-            body.UseShapeColors = true;
-            body.Fill = true;
-            body.Stroke = false;
-            t.RenderCommands.Add(body);
-
-            RenderCommand topCap = new RenderCommand();
-            topCap.CommandType = RenderCommandType.Ellipse;
-            topCap.X = 0.10f; topCap.Y = 0f;
-            topCap.Width = 0.80f; topCap.Height = topY * 2;
-            topCap.UseShapeColors = true;
-            topCap.Fill = true;
-            topCap.Stroke = true;
-            topCap.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(topCap);
-
-            RenderCommand midLine = new RenderCommand();
-            midLine.CommandType = RenderCommandType.Line;
-            midLine.X = 0.10f; midLine.Y = midY;
-            midLine.Width = 0.80f; midLine.Height = 0f;
-            midLine.StrokeColor = new XmlColor(Color.FromArgb(100, 100, 160));
-            midLine.StrokeWidth = 1f;
-            midLine.UseShapeColors = false;
-            t.RenderCommands.Add(midLine);
-
-            RenderCommand botCap = new RenderCommand();
-            botCap.CommandType = RenderCommandType.Ellipse;
-            botCap.X = 0.10f; botCap.Y = botY - topY;
-            botCap.Width = 0.80f; botCap.Height = topY * 2;
-            botCap.UseShapeColors = true;
-            botCap.Fill = false;
-            botCap.Stroke = true;
-            botCap.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(botCap);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterStartEndType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "起止";
-            t.Category = "流程图";
-            t.Description = "流程图起止节点";
-            t.DefaultWidth = 140;
-            t.DefaultHeight = 70;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(255, 235, 235));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(200, 80, 80));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.RoundedRect;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.CornerRadius = 18f;
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterDocumentType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "文档";
-            t.Category = "流程图";
-            t.Description = "带折角的文档";
-            t.DefaultWidth = 130;
-            t.DefaultHeight = 110;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(255, 250, 240));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(180, 140, 80));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.Polygon;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.PolygonPoints = new PointF[] {
-                new PointF(0f, 0f),
-                new PointF(0.75f, 0f),
-                new PointF(1f, 0.22f),
-                new PointF(1f, 1f),
-                new PointF(0f, 1f)
-            };
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            RenderCommand fold = new RenderCommand();
-            fold.CommandType = RenderCommandType.Line;
-            fold.X = 0.75f; fold.Y = 0f;
-            fold.Width = 0f; fold.Height = 0.22f;
-            fold.StrokeColor = new XmlColor(Color.FromArgb(180, 140, 80));
-            fold.StrokeWidth = 1f;
-            fold.UseShapeColors = false;
-            t.RenderCommands.Add(fold);
-
-            RenderCommand fold2 = new RenderCommand();
-            fold2.CommandType = RenderCommandType.Line;
-            fold2.X = 0.75f; fold2.Y = 0.22f;
-            fold2.Width = 0.25f; fold2.Height = 0f;
-            fold2.StrokeColor = new XmlColor(Color.FromArgb(180, 140, 80));
-            fold2.StrokeWidth = 1f;
-            fold2.UseShapeColors = false;
-            t.RenderCommands.Add(fold2);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterUserType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "用户";
-            t.Category = "UML";
-            t.Description = "参与者/用户";
-            t.DefaultWidth = 100;
-            t.DefaultHeight = 130;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(255, 240, 230));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(160, 100, 60));
-            t.SupportsMembers = true;
-
-            RenderCommand head = new RenderCommand();
-            head.CommandType = RenderCommandType.Ellipse;
-            head.X = 0.25f; head.Y = 0f;
-            head.Width = 0.50f; head.Height = 0.28f;
-            head.UseShapeColors = true;
-            head.Fill = true;
-            head.Stroke = true;
-            head.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(head);
-
-            RenderCommand body = new RenderCommand();
-            body.CommandType = RenderCommandType.Polygon;
-            body.X = 0f; body.Y = 0f;
-            body.Width = 1f; body.Height = 1f;
-            body.PolygonPoints = new PointF[] {
-                new PointF(0.50f, 0.28f),
-                new PointF(0.85f, 0.48f),
-                new PointF(0.95f, 1f),
-                new PointF(0.05f, 1f),
-                new PointF(0.15f, 0.48f)
-            };
-            body.UseShapeColors = true;
-            body.Fill = true;
-            body.Stroke = true;
-            body.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(body);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterNoteType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "注释";
-            t.Category = "流程图";
-            t.Description = "便签注释";
-            t.DefaultWidth = 150;
-            t.DefaultHeight = 110;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(255, 255, 200));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(200, 180, 60));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.Polygon;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.PolygonPoints = new PointF[] {
-                new PointF(0f, 0f),
-                new PointF(0.85f, 0f),
-                new PointF(1f, 0.15f),
-                new PointF(1f, 1f),
-                new PointF(0f, 1f)
-            };
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            RenderCommand fold = new RenderCommand();
-            fold.CommandType = RenderCommandType.Polygon;
-            fold.X = 0f; fold.Y = 0f;
-            fold.Width = 1f; fold.Height = 1f;
-            fold.PolygonPoints = new PointF[] {
-                new PointF(0.85f, 0f),
-                new PointF(0.85f, 0.15f),
-                new PointF(1f, 0.15f)
-            };
-            fold.StrokeColor = new XmlColor(Color.FromArgb(200, 180, 60));
-            fold.StrokeWidth = 1f;
-            fold.UseShapeColors = false;
-            fold.Fill = false;
-            fold.Stroke = true;
-            t.RenderCommands.Add(fold);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterComponentType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "组件";
-            t.Category = "云原生";
-            t.Description = "微服务组件";
-            t.DefaultWidth = 160;
-            t.DefaultHeight = 110;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(240, 255, 240));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(60, 160, 80));
-            t.SupportsMembers = true;
-
-            RenderCommand main = new RenderCommand();
-            main.CommandType = RenderCommandType.RoundedRect;
-            main.X = 0.10f; main.Y = 0.15f;
-            main.Width = 0.80f; main.Height = 0.70f;
-            main.CornerRadius = 4f;
-            main.UseShapeColors = true;
-            main.Fill = true;
-            main.Stroke = true;
-            main.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(main);
-
-            RenderCommand plug1 = new RenderCommand();
-            plug1.CommandType = RenderCommandType.RoundedRect;
-            plug1.X = 0f; plug1.Y = 0.30f;
-            plug1.Width = 0.15f; plug1.Height = 0.12f;
-            plug1.CornerRadius = 2f;
-            plug1.UseShapeColors = true;
-            plug1.Fill = true;
-            plug1.Stroke = true;
-            plug1.StrokeWidth = 1f;
-            t.RenderCommands.Add(plug1);
-
-            RenderCommand plug2 = new RenderCommand();
-            plug2.CommandType = RenderCommandType.RoundedRect;
-            plug2.X = 0.85f; plug2.Y = 0.55f;
-            plug2.Width = 0.15f; plug2.Height = 0.12f;
-            plug2.CornerRadius = 2f;
-            plug2.UseShapeColors = true;
-            plug2.Fill = true;
-            plug2.Stroke = true;
-            plug2.StrokeWidth = 1f;
-            t.RenderCommands.Add(plug2);
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterContainerType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "容器";
-            t.Category = "容器";
-            t.Description = "可嵌套容器";
-            t.DefaultWidth = 300;
-            t.DefaultHeight = 220;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(250, 250, 250));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(100, 100, 120));
-            t.IsContainer = true;
-
-            ShapeTypeRegistry.Instance.Register(t);
-        }
-
-        private void RegisterClassType()
-        {
-            ShapeType t = new ShapeType();
-            t.Name = "类";
-            t.Category = "UML";
-            t.Description = "类图";
-            t.DefaultWidth = 180;
-            t.DefaultHeight = 160;
-            t.DefaultFillColor = new XmlColor(Color.FromArgb(250, 248, 240));
-            t.DefaultBorderColor = new XmlColor(Color.FromArgb(100, 100, 100));
-            t.SupportsMembers = true;
-
-            RenderCommand bg = new RenderCommand();
-            bg.CommandType = RenderCommandType.RoundedRect;
-            bg.X = 0f; bg.Y = 0f;
-            bg.Width = 1f; bg.Height = 1f;
-            bg.CornerRadius = 4f;
-            bg.UseShapeColors = true;
-            bg.Fill = true;
-            bg.Stroke = true;
-            bg.StrokeWidth = 1.5f;
-            t.RenderCommands.Add(bg);
-
-            RenderCommand title = new RenderCommand();
-            title.CommandType = RenderCommandType.Text;
-            title.X = 0f; title.Y = 0f;
-            title.Width = 1f; title.Height = 0.22f;
-            title.Text = "";
-            title.TextAlign = "center";
-            title.FontSize = 11f;
-            title.IsBold = true;
-            title.UseShapeColors = true;
-            t.RenderCommands.Add(title);
-
-            RenderCommand sep = new RenderCommand();
-            sep.CommandType = RenderCommandType.Line;
-            sep.X = 0f; sep.Y = 0.22f;
-            sep.Width = 1f; sep.Height = 0f;
-            sep.StrokeColor = new XmlColor(Color.FromArgb(180, 180, 180));
-            sep.StrokeWidth = 1f;
-            sep.UseShapeColors = false;
-            t.RenderCommands.Add(sep);
-
-            ShapeTypeRegistry.Instance.Register(t);
         }
 
         #endregion

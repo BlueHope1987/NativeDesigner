@@ -46,6 +46,8 @@
     <Compile Include="Core\Connection.cs" />
     <Compile Include="Core\DrawingDocument.cs" />
     <Compile Include="Core\GraphicsUtility.cs" />
+    <Compile Include="Core\ShapeLibrary.cs" />
+    <Compile Include="Core\ShapeComposer.cs" />
     <Compile Include="Config\GlobalConfig.cs" />
     <Compile Include="Controls\ToolboxPanel.cs" />
     <Compile Include="Controls\DrawingCanvas.cs" />

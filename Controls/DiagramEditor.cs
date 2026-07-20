@@ -25,7 +25,6 @@ namespace CloudNativeDesigner.Controls
         private StatusStrip _statusStrip;
         private ToolStripStatusLabel _statusLabel;
         private ToolStripStatusLabel _zoomLabel;
-        private string _currentFilePath = "";
         private bool _contextMenuEnabled = true;
         private bool _showToolbarText = false;
         private bool _layoutApplied = false;
@@ -417,12 +416,6 @@ namespace CloudNativeDesigner.Controls
             get { return _canvas.Document; }
         }
 
-        public string CurrentFilePath
-        {
-            get { return _currentFilePath; }
-            set { _currentFilePath = value; }
-        }
-
         [Category("面板")]
         [Description("是否显示工具栏")]
         public bool ShowToolbar
@@ -608,36 +601,37 @@ namespace CloudNativeDesigner.Controls
             _canvas.SendToBack();
         }
 
-        public void NewDocument()
+        /// <summary>
+        /// 获取当前画布中的文档对象
+        /// </summary>
+        public DrawingDocument GetDocument()
         {
+            return _canvas.Document;
+        }
+
+        /// <summary>
+        /// 用新的文档替换当前画布内容
+        /// </summary>
+        public void SetDocument(DrawingDocument document)
+        {
+            if (document == null)
+                return;
             _canvas.Document.Clear();
-            _currentFilePath = "";
+            foreach (ShapeBase shape in document.Shapes)
+                _canvas.Document.AddShape(shape);
+            foreach (Connection conn in document.Connections)
+                _canvas.Document.AddConnection(conn);
             _propertyGrid.SelectedObject = GlobalConfig.Instance;
-            _statusLabel.Text = "新建文档";
             _canvas.Invalidate();
         }
 
-        public void SaveDocument(string filePath)
+        /// <summary>
+        /// 清空当前画布
+        /// </summary>
+        public void ClearDocument()
         {
-            if (filePath == null || filePath.Length == 0)
-                return;
-            XmlShapeSerializer.Save(filePath, _canvas.Document);
-            _currentFilePath = filePath;
-            _statusLabel.Text = "已保存: " + filePath;
-        }
-
-        public void LoadDocument(string filePath)
-        {
-            if (filePath == null || filePath.Length == 0)
-                return;
-            DrawingDocument doc = XmlShapeSerializer.Load(filePath);
             _canvas.Document.Clear();
-            foreach (ShapeBase shape in doc.Shapes)
-                _canvas.Document.AddShape(shape);
-            foreach (Connection conn in doc.Connections)
-                _canvas.Document.AddConnection(conn);
-            _currentFilePath = filePath;
-            _statusLabel.Text = "已打开: " + filePath;
+            _propertyGrid.SelectedObject = GlobalConfig.Instance;
             _canvas.Invalidate();
         }
 
@@ -756,14 +750,6 @@ namespace CloudNativeDesigner.Controls
 
             // 清理之前可能残留的注入菜单（应对控件反复增删场景）
             CleanOldInjectedMenus(_hostMenu);
-
-            ToolStripMenuItem fileMenu = FindOrCreateMenu(_hostMenu, "文件(&F)");
-            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("新建", "new_doc.png", new EventHandler(OnFileNew))));
-            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("打开...", "open.png", new EventHandler(OnFileOpen), Keys.Control | Keys.O)));
-            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("保存", "save.png", new EventHandler(OnFileSave), Keys.Control | Keys.S)));
-            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("另存为...", new EventHandler(OnFileSaveAs))));
-            fileMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
-            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("退出", "exit.png", new EventHandler(OnFileExit))));
 
             ToolStripMenuItem editMenu = FindOrCreateMenu(_hostMenu, "编辑(&E)");
             _menuEditDelete = MarkInjectedMenu(CreateMenuItem("删除", "delete.png", new EventHandler(OnEditDelete), Keys.Delete));
@@ -951,28 +937,7 @@ namespace CloudNativeDesigner.Controls
 
         // ===== 事件 =====
 
-        public event EventHandler DocumentSaved;
-        public event EventHandler DocumentLoaded;
-        public event EventHandler NewDocumentCreated;
         public event EventHandler ThemeChanged;
-
-        protected virtual void OnDocSaved(EventArgs e)
-        {
-            if (DocumentSaved != null)
-                DocumentSaved(this, e);
-        }
-
-        protected virtual void OnDocLoaded(EventArgs e)
-        {
-            if (DocumentLoaded != null)
-                DocumentLoaded(this, e);
-        }
-
-        protected virtual void OnDocNew(EventArgs e)
-        {
-            if (NewDocumentCreated != null)
-                NewDocumentCreated(this, e);
-        }
 
         protected virtual void OnThemeChanged(EventArgs e)
         {
