@@ -16,17 +16,17 @@ namespace DemoApp
 
         public MainForm()
         {
-            // 创建宿主菜单栏
-            _menuStrip = new MenuStrip();
-            this.MainMenuStrip = _menuStrip;
-            this.Controls.Add(_menuStrip);
-
-            // 创建编辑器控件
+            // 1. 先创建编辑器控件（Dock.Fill，Z序最低）
             _editor = new DiagramEditor();
             _editor.Dock = DockStyle.Fill;
             this.Controls.Add(_editor);
 
-            // 将控件功能菜单注入宿主菜单栏
+            // 2. 后创建宿主菜单栏（Dock.Top，Z序更高，抢占顶部）
+            _menuStrip = new MenuStrip();
+            this.MainMenuStrip = _menuStrip;
+            this.Controls.Add(_menuStrip);
+
+            // 3. 将控件功能菜单注入宿主菜单栏
             _editor.ConfigureMenu(_menuStrip);
             _editor.ConfigureHostForm(this);
 
