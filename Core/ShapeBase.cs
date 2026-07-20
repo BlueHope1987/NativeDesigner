@@ -460,18 +460,18 @@ namespace CloudNativeDesigner.Core
 
             if (brightness > 220f)
             {
-                darkColor = DarkenColor(baseColor, 0.05f);
-                lightColor = DarkenColor(baseColor, 0.01f);
+                darkColor = DarkenColor(baseColor, 0.06f);
+                lightColor = LightenColor(baseColor, 0.12f);
             }
             else if (brightness < 60f)
             {
-                darkColor = LightenColor(baseColor, 0.02f);
-                lightColor = LightenColor(baseColor, 0.05f);
+                darkColor = LightenColor(baseColor, 0.12f);
+                lightColor = LightenColor(baseColor, 0.20f);
             }
             else
             {
-                darkColor = DarkenColor(baseColor, 0.04f);
-                lightColor = LightenColor(baseColor, 0.03f);
+                darkColor = DarkenColor(baseColor, 0.06f);
+                lightColor = LightenColor(baseColor, 0.12f);
             }
 
             return new LinearGradientBrush(

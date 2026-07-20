@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 using CloudNativeDesigner.Config;
 using CloudNativeDesigner.Core;
@@ -234,7 +236,7 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.ImageScalingSize = new Size(20, 20);
 
             _btnSelect = new ToolStripButton();
-            _btnSelect.Image = Bitmap.FromHicon(SystemIcons.WinLogo.Handle);
+            _btnSelect.Image = LoadIcon("cursor.png");
             _btnSelect.Text = "选择工具";
             _btnSelect.CheckOnClick = true;
             _btnSelect.Checked = true;
@@ -242,28 +244,28 @@ namespace CloudNativeDesigner.Controls
             _btnSelect.ToolTipText = "选择工具 (V)";
 
             _btnConnect = new ToolStripButton();
-            _btnConnect.Image = Bitmap.FromHicon(SystemIcons.Warning.Handle);
+            _btnConnect.Image = LoadIcon("connect.png");
             _btnConnect.Text = "连线工具";
             _btnConnect.CheckOnClick = true;
             _btnConnect.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnConnect.ToolTipText = "连线工具 (L)";
 
             _btnStraight = new ToolStripButton();
-            _btnStraight.Image = Bitmap.FromHicon(CreateLineIcon(false).Handle);
+            _btnStraight.Image = LoadIcon("line_straight.png");
             _btnStraight.Text = "直线模式";
             _btnStraight.CheckOnClick = true;
             _btnStraight.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnStraight.ToolTipText = "直线模式";
 
             _btnCurve = new ToolStripButton();
-            _btnCurve.Image = Bitmap.FromHicon(CreateCurveIcon().Handle);
+            _btnCurve.Image = LoadIcon("line_curve.png");
             _btnCurve.Text = "曲线模式";
             _btnCurve.CheckOnClick = true;
             _btnCurve.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnCurve.ToolTipText = "曲线模式";
 
             _btnOrtho = new ToolStripButton();
-            _btnOrtho.Image = Bitmap.FromHicon(CreateOrthoIcon().Handle);
+            _btnOrtho.Image = LoadIcon("line_ortho.png");
             _btnOrtho.Text = "折线模式";
             _btnOrtho.CheckOnClick = true;
             _btnOrtho.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -278,19 +280,19 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.Items.Add(new ToolStripSeparator());
 
             _btnZoomIn = new ToolStripButton();
-            _btnZoomIn.Image = Bitmap.FromHicon(CreateZoomInIcon().Handle);
+            _btnZoomIn.Image = LoadIcon("zoom_in.png");
             _btnZoomIn.Text = "放大";
             _btnZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnZoomIn.ToolTipText = "放大 (+)";
 
             _btnZoomOut = new ToolStripButton();
-            _btnZoomOut.Image = Bitmap.FromHicon(CreateZoomOutIcon().Handle);
+            _btnZoomOut.Image = LoadIcon("zoom_out.png");
             _btnZoomOut.Text = "缩小";
             _btnZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnZoomOut.ToolTipText = "缩小 (-)";
 
             _btnFit = new ToolStripButton();
-            _btnFit.Image = Bitmap.FromHicon(CreateFitIcon().Handle);
+            _btnFit.Image = LoadIcon("fit_view.png");
             _btnFit.Text = "适应视图";
             _btnFit.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnFit.ToolTipText = "重置视图";
@@ -301,13 +303,13 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.Items.Add(new ToolStripSeparator());
 
             _btnFront = new ToolStripButton();
-            _btnFront.Image = Bitmap.FromHicon(CreateTopIcon().Handle);
+            _btnFront.Image = LoadIcon("to_front.png");
             _btnFront.Text = "置顶";
             _btnFront.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnFront.ToolTipText = "置于顶层";
 
             _btnBack = new ToolStripButton();
-            _btnBack.Image = Bitmap.FromHicon(CreateBottomIcon().Handle);
+            _btnBack.Image = LoadIcon("to_back.png");
             _btnBack.Text = "置底";
             _btnBack.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnBack.ToolTipText = "置于底层";
@@ -317,7 +319,7 @@ namespace CloudNativeDesigner.Controls
             _toolStrip.Items.Add(new ToolStripSeparator());
 
             _btnDelete = new ToolStripButton();
-            _btnDelete.Image = Bitmap.FromHicon(SystemIcons.Hand.Handle);
+            _btnDelete.Image = LoadIcon("delete.png");
             _btnDelete.Text = "删除";
             _btnDelete.DisplayStyle = ToolStripItemDisplayStyle.Image;
             _btnDelete.ToolTipText = "删除选中 (Delete)";
@@ -343,113 +345,49 @@ namespace CloudNativeDesigner.Controls
             _canvas.MouseMove += new MouseEventHandler(OnCanvasMouseMove);
             _canvas.MouseClick += new MouseEventHandler(OnCanvasMouseClick);
             _propertyGrid.PropertyValueChanged += new PropertyValueChangedEventHandler(OnPropertyValueChanged);
+
+            // 工具栏按钮事件绑定
+            _btnSelect.Click += new EventHandler(OnSelectTool);
+            _btnConnect.Click += new EventHandler(OnConnectTool);
+            _btnStraight.Click += new EventHandler(OnStraightMode);
+            _btnCurve.Click += new EventHandler(OnCurveMode);
+            _btnOrtho.Click += new EventHandler(OnOrthoMode);
+            _btnZoomIn.Click += new EventHandler(OnZoomIn);
+            _btnZoomOut.Click += new EventHandler(OnZoomOut);
+            _btnFit.Click += new EventHandler(OnZoomFit);
+            _btnFront.Click += new EventHandler(OnBringToFront);
+            _btnBack.Click += new EventHandler(OnSendToBack);
+            _btnDelete.Click += new EventHandler(OnDeleteSelected);
         }
 
-        // ===== 图标创建方法 =====
+        // ===== 图标资源加载 =====
 
-        private Icon CreateLineIcon(bool curved)
+        private static Bitmap LoadIcon(string name)
         {
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp))
-            using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
+            try
             {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                if (curved)
-                    g.DrawBezier(pen, 2, 13, 5, 2, 11, 2, 14, 13);
-                else
-                    g.DrawLine(pen, 2, 13, 14, 2);
+                Assembly asm = Assembly.GetExecutingAssembly();
+                string resourceName = "CloudNativeDesigner.Icons." + name;
+                Stream stream = asm.GetManifestResourceStream(resourceName);
+                if (stream != null)
+                {
+                    Bitmap bmp = new Bitmap(stream);
+                    // 确保透明色正确
+                    bmp.MakeTransparent(Color.Transparent);
+                    return bmp;
+                }
             }
-            return Icon.FromHandle(bmp.GetHicon());
-        }
-
-        private Icon CreateCurveIcon()
-        {
-            return CreateLineIcon(true);
-        }
-
-        private Icon CreateOrthoIcon()
-        {
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp))
-            using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
+            catch
             {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawLines(pen, new PointF[] {
-                    new PointF(2, 13), new PointF(2, 3),
-                    new PointF(14, 3), new PointF(14, 13)
-                });
             }
-            return Icon.FromHandle(bmp.GetHicon());
-        }
-
-        private Icon CreateZoomInIcon()
-        {
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp))
-            using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
+            // 回退：生成一个简单的占位图标
+            Bitmap fallback = new Bitmap(16, 16);
+            using (Graphics g = Graphics.FromImage(fallback))
+            using (Brush brush = new SolidBrush(Color.FromArgb(180, 200, 220)))
             {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawEllipse(pen, 3, 3, 9, 9);
-                g.DrawLine(pen, 10, 10, 14, 14);
-                g.DrawLine(pen, 6, 7, 9, 7);
-                g.DrawLine(pen, 7.5f, 6, 7.5f, 9);
+                g.FillRectangle(brush, 0, 0, 16, 16);
             }
-            return Icon.FromHandle(bmp.GetHicon());
-        }
-
-        private Icon CreateZoomOutIcon()
-        {
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp))
-            using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
-            {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawEllipse(pen, 3, 3, 9, 9);
-                g.DrawLine(pen, 10, 10, 14, 14);
-                g.DrawLine(pen, 6, 7, 9, 7);
-            }
-            return Icon.FromHandle(bmp.GetHicon());
-        }
-
-        private Icon CreateFitIcon()
-        {
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp))
-            using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
-            {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawRectangle(pen, 3, 5, 10, 6);
-                g.DrawRectangle(pen, 5, 3, 6, 10);
-            }
-            return Icon.FromHandle(bmp.GetHicon());
-        }
-
-        private Icon CreateTopIcon()
-        {
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp))
-            using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
-            {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawPolygon(pen, new PointF[] {
-                    new PointF(3, 11), new PointF(8, 4), new PointF(13, 11)
-                });
-            }
-            return Icon.FromHandle(bmp.GetHicon());
-        }
-
-        private Icon CreateBottomIcon()
-        {
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp))
-            using (Pen pen = new Pen(Color.FromArgb(80, 80, 80), 1.5f))
-            {
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.DrawPolygon(pen, new PointF[] {
-                    new PointF(3, 4), new PointF(8, 11), new PointF(13, 4)
-                });
-            }
-            return Icon.FromHandle(bmp.GetHicon());
+            return fallback;
         }
 
         // ===== 公共属性 =====
@@ -708,7 +646,14 @@ namespace CloudNativeDesigner.Controls
         protected override void OnParentChanged(EventArgs e)
         {
             base.OnParentChanged(e);
-            ScheduleMenuInjection();
+            if (this.Parent == null)
+            {
+                UninjectMenus();
+            }
+            else
+            {
+                ScheduleMenuInjection();
+            }
         }
 
         private void ScheduleMenuInjection()
@@ -809,68 +754,71 @@ namespace CloudNativeDesigner.Controls
             if (_menuInjected)
                 return;
 
+            // 清理之前可能残留的注入菜单（应对控件反复增删场景）
+            CleanOldInjectedMenus(_hostMenu);
+
             ToolStripMenuItem fileMenu = FindOrCreateMenu(_hostMenu, "文件(&F)");
-            fileMenu.DropDownItems.Add(CreateMenuItem("新建", new EventHandler(OnFileNew)));
-            fileMenu.DropDownItems.Add(CreateMenuItem("打开...", new EventHandler(OnFileOpen), Keys.Control | Keys.O));
-            fileMenu.DropDownItems.Add(CreateMenuItem("保存", new EventHandler(OnFileSave), Keys.Control | Keys.S));
-            fileMenu.DropDownItems.Add(CreateMenuItem("另存为...", new EventHandler(OnFileSaveAs)));
-            fileMenu.DropDownItems.Add(new ToolStripSeparator());
-            fileMenu.DropDownItems.Add(CreateMenuItem("退出", new EventHandler(OnFileExit)));
+            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("新建", "new_doc.png", new EventHandler(OnFileNew))));
+            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("打开...", "open.png", new EventHandler(OnFileOpen), Keys.Control | Keys.O)));
+            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("保存", "save.png", new EventHandler(OnFileSave), Keys.Control | Keys.S)));
+            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("另存为...", new EventHandler(OnFileSaveAs))));
+            fileMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
+            fileMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("退出", "exit.png", new EventHandler(OnFileExit))));
 
             ToolStripMenuItem editMenu = FindOrCreateMenu(_hostMenu, "编辑(&E)");
-            _menuEditDelete = CreateMenuItem("删除", new EventHandler(OnEditDelete), Keys.Delete);
+            _menuEditDelete = MarkInjectedMenu(CreateMenuItem("删除", "delete.png", new EventHandler(OnEditDelete), Keys.Delete));
             _menuEditDelete.Enabled = false;
             editMenu.DropDownItems.Add(_menuEditDelete);
-            editMenu.DropDownItems.Add(CreateMenuItem("全选", new EventHandler(OnEditSelectAll), Keys.Control | Keys.A));
+            editMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("全选", "select_all.png", new EventHandler(OnEditSelectAll), Keys.Control | Keys.A)));
 
             ToolStripMenuItem viewMenu = FindOrCreateMenu(_hostMenu, "视图(&V)");
-            _menuViewGrid = CreateCheckMenuItem("网格", GlobalConfig.Instance.ShowGrid, new EventHandler(OnViewGrid));
+            _menuViewGrid = MarkInjectedMenu(CreateCheckMenuItem("网格", "grid.png", GlobalConfig.Instance.ShowGrid, new EventHandler(OnViewGrid)));
             viewMenu.DropDownItems.Add(_menuViewGrid);
-            _menuViewSnap = CreateCheckMenuItem("对齐", GlobalConfig.Instance.SnapToGrid, new EventHandler(OnViewSnap));
+            _menuViewSnap = MarkInjectedMenu(CreateCheckMenuItem("对齐", "snap.png", GlobalConfig.Instance.SnapToGrid, new EventHandler(OnViewSnap)));
             viewMenu.DropDownItems.Add(_menuViewSnap);
-            viewMenu.DropDownItems.Add(new ToolStripSeparator());
-            _menuViewToolbar = CreateCheckMenuItem("工具栏", true, new EventHandler(OnViewToolbar));
+            viewMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
+            _menuViewToolbar = MarkInjectedMenu(CreateCheckMenuItem("工具栏", "toolbar.png", true, new EventHandler(OnViewToolbar)));
             viewMenu.DropDownItems.Add(_menuViewToolbar);
-            _menuViewToolbarText = CreateCheckMenuItem("工具栏文字", false, new EventHandler(OnViewToolbarText));
+            _menuViewToolbarText = MarkInjectedMenu(CreateCheckMenuItem("工具栏文字", "menu_text.png", false, new EventHandler(OnViewToolbarText)));
             viewMenu.DropDownItems.Add(_menuViewToolbarText);
-            _menuViewProperty = CreateCheckMenuItem("属性栏", false, new EventHandler(OnViewProperty));
+            _menuViewProperty = MarkInjectedMenu(CreateCheckMenuItem("属性栏", "properties.png", false, new EventHandler(OnViewProperty)));
             viewMenu.DropDownItems.Add(_menuViewProperty);
-            _menuViewToolbox = CreateCheckMenuItem("工具箱", true, new EventHandler(OnViewToolbox));
+            _menuViewToolbox = MarkInjectedMenu(CreateCheckMenuItem("工具箱", "toolbox.png", true, new EventHandler(OnViewToolbox)));
             viewMenu.DropDownItems.Add(_menuViewToolbox);
-            _menuViewContextMenu = CreateCheckMenuItem("右键菜单", true, new EventHandler(OnViewContextMenu));
+            _menuViewContextMenu = MarkInjectedMenu(CreateCheckMenuItem("右键菜单", "eye.png", true, new EventHandler(OnViewContextMenu)));
             viewMenu.DropDownItems.Add(_menuViewContextMenu);
-            _menuViewStatusBar = CreateCheckMenuItem("状态栏", true, new EventHandler(OnViewStatusBar));
+            _menuViewStatusBar = MarkInjectedMenu(CreateCheckMenuItem("状态栏", "statusbar.png", true, new EventHandler(OnViewStatusBar)));
             viewMenu.DropDownItems.Add(_menuViewStatusBar);
-            viewMenu.DropDownItems.Add(new ToolStripSeparator());
-            _menuViewThemeLight = CreateCheckMenuItem("亮色主题", true, new EventHandler(OnThemeLight));
+            viewMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
+            _menuViewThemeLight = MarkInjectedMenu(CreateCheckMenuItem("亮色主题", "sun.png", true, new EventHandler(OnThemeLight)));
             viewMenu.DropDownItems.Add(_menuViewThemeLight);
-            _menuViewThemeDark = CreateCheckMenuItem("暗色主题", false, new EventHandler(OnThemeDark));
+            _menuViewThemeDark = MarkInjectedMenu(CreateCheckMenuItem("暗色主题", "moon.png", false, new EventHandler(OnThemeDark)));
             viewMenu.DropDownItems.Add(_menuViewThemeDark);
-            viewMenu.DropDownItems.Add(new ToolStripSeparator());
-            viewMenu.DropDownItems.Add(CreateMenuItem("放大", new EventHandler(OnViewZoomIn)));
-            viewMenu.DropDownItems.Add(CreateMenuItem("缩小", new EventHandler(OnViewZoomOut)));
-            viewMenu.DropDownItems.Add(CreateMenuItem("重置视图", new EventHandler(OnViewReset)));
+            viewMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
+            viewMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("放大", "zoom_in.png", new EventHandler(OnViewZoomIn))));
+            viewMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("缩小", "zoom_out.png", new EventHandler(OnViewZoomOut))));
+            viewMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("重置视图", "fit_view.png", new EventHandler(OnViewReset))));
 
             ToolStripMenuItem toolsMenu = FindOrCreateMenu(_hostMenu, "工具(&T)");
-            toolsMenu.DropDownItems.Add(CreateMenuItem("选择工具", new EventHandler(OnToolSelect)));
-            toolsMenu.DropDownItems.Add(CreateMenuItem("连线工具", new EventHandler(OnToolConnect)));
-            toolsMenu.DropDownItems.Add(new ToolStripSeparator());
-            toolsMenu.DropDownItems.Add(CreateMenuItem("直线模式", new EventHandler(OnToolStraight)));
-            toolsMenu.DropDownItems.Add(CreateMenuItem("曲线模式", new EventHandler(OnToolCurve)));
-            toolsMenu.DropDownItems.Add(CreateMenuItem("折线模式", new EventHandler(OnToolOrtho)));
+            toolsMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("选择工具", "cursor.png", new EventHandler(OnToolSelect))));
+            toolsMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("连线工具", "connect.png", new EventHandler(OnToolConnect))));
+            toolsMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
+            toolsMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("直线模式", "line_straight.png", new EventHandler(OnToolStraight))));
+            toolsMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("曲线模式", "line_curve.png", new EventHandler(OnToolCurve))));
+            toolsMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("折线模式", "line_ortho.png", new EventHandler(OnToolOrtho))));
 
             ToolStripMenuItem shapeMenu = FindOrCreateMenu(_hostMenu, "图形(&S)");
-            _menuShapeAddMember = CreateMenuItem("添加成员", new EventHandler(OnCtxAddMember));
+            _menuShapeAddMember = MarkInjectedMenu(CreateMenuItem("添加成员", "add_member.png", new EventHandler(OnCtxAddMember)));
             _menuShapeAddMember.Enabled = false;
             shapeMenu.DropDownItems.Add(_menuShapeAddMember);
-            _menuShapeSwitchState = CreateMenuItem("切换状态", new EventHandler(OnCtxSwitchState));
+            _menuShapeSwitchState = MarkInjectedMenu(CreateMenuItem("切换状态", "switch_state.png", new EventHandler(OnCtxSwitchState)));
             _menuShapeSwitchState.Enabled = false;
             shapeMenu.DropDownItems.Add(_menuShapeSwitchState);
-            shapeMenu.DropDownItems.Add(new ToolStripSeparator());
-            _menuShapeToFront = CreateMenuItem("置顶", new EventHandler(OnBringToFront));
+            shapeMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
+            _menuShapeToFront = MarkInjectedMenu(CreateMenuItem("置顶", "to_front.png", new EventHandler(OnBringToFront)));
             _menuShapeToFront.Enabled = false;
             shapeMenu.DropDownItems.Add(_menuShapeToFront);
-            _menuShapeToBack = CreateMenuItem("置底", new EventHandler(OnSendToBack));
+            _menuShapeToBack = MarkInjectedMenu(CreateMenuItem("置底", "to_back.png", new EventHandler(OnSendToBack)));
             _menuShapeToBack.Enabled = false;
             shapeMenu.DropDownItems.Add(_menuShapeToBack);
 
@@ -887,28 +835,117 @@ namespace CloudNativeDesigner.Controls
                     return m;
             }
             ToolStripMenuItem newMenu = new ToolStripMenuItem(text);
+            newMenu.Tag = "CND_TopMenu";
             menuStrip.Items.Add(newMenu);
             return newMenu;
         }
 
-        private ToolStripMenuItem CreateMenuItem(string text, EventHandler handler)
+        private ToolStripItem MarkInjected(ToolStripItem item)
         {
-            return CreateMenuItem(text, handler, Keys.None);
+            item.Tag = "CND_Injected";
+            return item;
         }
 
-        private ToolStripMenuItem CreateMenuItem(string text, EventHandler handler, Keys shortcutKeys)
+        private ToolStripMenuItem MarkInjectedMenu(ToolStripMenuItem item)
+        {
+            item.Tag = "CND_Injected";
+            return item;
+        }
+
+        private void CleanOldInjectedMenus(MenuStrip menuStrip)
+        {
+            if (menuStrip == null)
+                return;
+
+            // 递归清理所有标记为注入的菜单项
+            for (int i = menuStrip.Items.Count - 1; i >= 0; i--)
+            {
+                ToolStripMenuItem topItem = menuStrip.Items[i] as ToolStripMenuItem;
+                if (topItem != null)
+                {
+                    CleanInjectedDropDownItems(topItem);
+                    // 如果顶级菜单是我们创建的且已空，则删除
+                    if ("CND_TopMenu".Equals(topItem.Tag) && topItem.DropDownItems.Count == 0)
+                        menuStrip.Items.RemoveAt(i);
+                }
+            }
+        }
+
+        private void CleanInjectedDropDownItems(ToolStripMenuItem parent)
+        {
+            for (int i = parent.DropDownItems.Count - 1; i >= 0; i--)
+            {
+                ToolStripItem item = parent.DropDownItems[i];
+                ToolStripMenuItem subMenu = item as ToolStripMenuItem;
+                if (subMenu != null)
+                {
+                    // 先递归清理子菜单
+                    CleanInjectedDropDownItems(subMenu);
+                }
+                if ("CND_Injected".Equals(item.Tag))
+                    parent.DropDownItems.RemoveAt(i);
+            }
+        }
+
+        private void UninjectMenus()
+        {
+            // 取消 ControlAdded 监听
+            Form topForm = GetTopLevelForm();
+            if (topForm != null)
+                topForm.ControlAdded -= new ControlEventHandler(OnHostControlAdded);
+
+            // 清理已注入的菜单项
+            if (_hostMenu != null)
+                CleanOldInjectedMenus(_hostMenu);
+
+            // 重置状态
+            _hostMenu = null;
+            _menuInjected = false;
+            _menuInjectionScheduled = false;
+            _menuEditDelete = null;
+            _menuViewGrid = null;
+            _menuViewSnap = null;
+            _menuViewToolbar = null;
+            _menuViewToolbarText = null;
+            _menuViewProperty = null;
+            _menuViewToolbox = null;
+            _menuViewContextMenu = null;
+            _menuViewStatusBar = null;
+            _menuViewThemeLight = null;
+            _menuViewThemeDark = null;
+            _menuShapeAddMember = null;
+            _menuShapeSwitchState = null;
+            _menuShapeToFront = null;
+            _menuShapeToBack = null;
+        }
+
+        private ToolStripMenuItem CreateMenuItem(string text, string iconName, EventHandler handler)
+        {
+            return CreateMenuItem(text, iconName, handler, Keys.None);
+        }
+
+        private ToolStripMenuItem CreateMenuItem(string text, EventHandler handler)
+        {
+            return CreateMenuItem(text, null, handler, Keys.None);
+        }
+
+        private ToolStripMenuItem CreateMenuItem(string text, string iconName, EventHandler handler, Keys shortcutKeys)
         {
             ToolStripMenuItem item = new ToolStripMenuItem(text, null, handler);
+            if (iconName != null)
+                item.Image = LoadIcon(iconName);
             if (shortcutKeys != Keys.None)
                 item.ShortcutKeys = shortcutKeys;
             return item;
         }
 
-        private ToolStripMenuItem CreateCheckMenuItem(string text, bool checked_, EventHandler handler)
+        private ToolStripMenuItem CreateCheckMenuItem(string text, string iconName, bool checked_, EventHandler handler)
         {
             ToolStripMenuItem item = new ToolStripMenuItem(text, null, handler);
             item.CheckOnClick = true;
             item.Checked = checked_;
+            if (iconName != null)
+                item.Image = LoadIcon(iconName);
             return item;
         }
 

@@ -57,5 +57,36 @@
     <Compile Include="Serialization\DocumentData.cs" />
     <Compile Include="Serialization\XmlShapeSerializer.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Icons\cursor.png" />
+    <EmbeddedResource Include="Icons\connect.png" />
+    <EmbeddedResource Include="Icons\line_straight.png" />
+    <EmbeddedResource Include="Icons\line_curve.png" />
+    <EmbeddedResource Include="Icons\line_ortho.png" />
+    <EmbeddedResource Include="Icons\zoom_in.png" />
+    <EmbeddedResource Include="Icons\zoom_out.png" />
+    <EmbeddedResource Include="Icons\fit_view.png" />
+    <EmbeddedResource Include="Icons\to_front.png" />
+    <EmbeddedResource Include="Icons\to_back.png" />
+    <EmbeddedResource Include="Icons\delete.png" />
+    <EmbeddedResource Include="Icons\properties.png" />
+    <EmbeddedResource Include="Icons\grid.png" />
+    <EmbeddedResource Include="Icons\snap.png" />
+    <EmbeddedResource Include="Icons\eye.png" />
+    <EmbeddedResource Include="Icons\sun.png" />
+    <EmbeddedResource Include="Icons\moon.png" />
+    <EmbeddedResource Include="Icons\new_doc.png" />
+    <EmbeddedResource Include="Icons\open.png" />
+    <EmbeddedResource Include="Icons\save.png" />
+    <EmbeddedResource Include="Icons\exit.png" />
+    <EmbeddedResource Include="Icons\edit.png" />
+    <EmbeddedResource Include="Icons\select_all.png" />
+    <EmbeddedResource Include="Icons\toolbar.png" />
+    <EmbeddedResource Include="Icons\toolbox.png" />
+    <EmbeddedResource Include="Icons\statusbar.png" />
+    <EmbeddedResource Include="Icons\menu_text.png" />
+    <EmbeddedResource Include="Icons\add_member.png" />
+    <EmbeddedResource Include="Icons\switch_state.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

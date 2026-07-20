@@ -133,18 +133,18 @@ namespace CloudNativeDesigner.Shapes
 
             if (brightness > 220f)
             {
-                colors.FillColorDark = ShapeBase.DarkenColor(FillColor, 0.05f);
-                colors.FillColorLight = ShapeBase.DarkenColor(FillColor, 0.01f);
+                colors.FillColorDark = ShapeBase.DarkenColor(FillColor, 0.06f);
+                colors.FillColorLight = ShapeBase.LightenColor(FillColor, 0.12f);
             }
             else if (brightness < 60f)
             {
-                colors.FillColorDark = ShapeBase.LightenColor(FillColor, 0.02f);
-                colors.FillColorLight = ShapeBase.LightenColor(FillColor, 0.05f);
+                colors.FillColorDark = ShapeBase.LightenColor(FillColor, 0.12f);
+                colors.FillColorLight = ShapeBase.LightenColor(FillColor, 0.20f);
             }
             else
             {
-                colors.FillColorDark = ShapeBase.DarkenColor(FillColor, 0.04f);
-                colors.FillColorLight = ShapeBase.LightenColor(FillColor, 0.03f);
+                colors.FillColorDark = ShapeBase.DarkenColor(FillColor, 0.06f);
+                colors.FillColorLight = ShapeBase.LightenColor(FillColor, 0.12f);
             }
 
             return colors;

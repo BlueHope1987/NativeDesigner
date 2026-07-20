@@ -374,25 +374,25 @@ namespace CloudNativeDesigner.Controls
             if (hasSingleGenericShape && supportsMembers)
             {
                 ToolStripMenuItem itemAddMember = new ToolStripMenuItem("添加成员",
-                    null, new EventHandler(OnCtxAddMember));
+                    LoadIcon("add_member.png"), new EventHandler(OnCtxAddMember));
                 ToolStripMenuItem itemSwitchState = new ToolStripMenuItem("切换状态",
-                    null, new EventHandler(OnCtxSwitchState));
+                    LoadIcon("switch_state.png"), new EventHandler(OnCtxSwitchState));
                 menu.Items.Add(itemAddMember);
                 menu.Items.Add(itemSwitchState);
                 menu.Items.Add(new ToolStripSeparator());
             }
 
             ToolStripMenuItem itemDelete = new ToolStripMenuItem("删除",
-                null, new EventHandler(OnCtxDelete));
+                LoadIcon("delete.png"), new EventHandler(OnCtxDelete));
             itemDelete.ShortcutKeyDisplayString = "Delete";
             menu.Items.Add(itemDelete);
 
             if (selectedShapes.Count > 1)
             {
                 ToolStripMenuItem itemFront = new ToolStripMenuItem("置顶",
-                    null, new EventHandler(OnCtxFront));
+                    LoadIcon("to_front.png"), new EventHandler(OnCtxFront));
                 ToolStripMenuItem itemBack = new ToolStripMenuItem("置底",
-                    null, new EventHandler(OnCtxBack));
+                    LoadIcon("to_back.png"), new EventHandler(OnCtxBack));
                 menu.Items.Add(itemFront);
                 menu.Items.Add(itemBack);
             }
@@ -400,7 +400,7 @@ namespace CloudNativeDesigner.Controls
             menu.Items.Add(new ToolStripSeparator());
 
             ToolStripMenuItem itemProps = new ToolStripMenuItem("属性...",
-                null, new EventHandler(OnCtxProps));
+                LoadIcon("properties.png"), new EventHandler(OnCtxProps));
             menu.Items.Add(itemProps);
 
             menu.Show(_canvas, location);
