@@ -432,5 +432,53 @@ namespace CloudNativeDesigner.Core
         {
             g.FillRectangle(brush, x - size / 2f, y - size / 2f, size, size);
         }
+
+        // ===== 渐变填充辅助方法 =====
+
+        public static Color LightenColor(Color c, float factor)
+        {
+            return Color.FromArgb(
+                c.A,
+                Math.Min(255, (int)(c.R + (255 - c.R) * factor)),
+                Math.Min(255, (int)(c.G + (255 - c.G) * factor)),
+                Math.Min(255, (int)(c.B + (255 - c.B) * factor)));
+        }
+
+        public static Color DarkenColor(Color c, float factor)
+        {
+            return Color.FromArgb(
+                c.A,
+                (int)(c.R * (1f - factor)),
+                (int)(c.G * (1f - factor)),
+                (int)(c.B * (1f - factor)));
+        }
+
+        public static Brush CreateGradientBrush(RectangleF rect, Color baseColor)
+        {
+            float brightness = baseColor.R * 0.299f + baseColor.G * 0.587f + baseColor.B * 0.114f;
+            Color darkColor, lightColor;
+
+            if (brightness > 220f)
+            {
+                darkColor = DarkenColor(baseColor, 0.05f);
+                lightColor = DarkenColor(baseColor, 0.01f);
+            }
+            else if (brightness < 60f)
+            {
+                darkColor = LightenColor(baseColor, 0.02f);
+                lightColor = LightenColor(baseColor, 0.05f);
+            }
+            else
+            {
+                darkColor = DarkenColor(baseColor, 0.04f);
+                lightColor = LightenColor(baseColor, 0.03f);
+            }
+
+            return new LinearGradientBrush(
+                new PointF(rect.X, rect.Y),
+                new PointF(rect.Right, rect.Bottom),
+                darkColor,
+                lightColor);
+        }
     }
 }

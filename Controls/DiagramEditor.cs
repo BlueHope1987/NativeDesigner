@@ -14,10 +14,10 @@ namespace CloudNativeDesigner.Controls
     public partial class DiagramEditor : UserControl
     {
         private SplitContainer _mainSplit;
-        private SplitContainer _rightSplit;
         private DrawingCanvas _canvas;
         private ToolboxPanel _toolbox;
         private PropertyGrid _propertyGrid;
+        private Form _propertyPanel;
         private MenuStrip _hostMenu;
         private ToolStrip _toolStrip;
         private StatusStrip _statusStrip;
@@ -27,6 +27,9 @@ namespace CloudNativeDesigner.Controls
         private bool _contextMenuEnabled = true;
         private bool _showToolbarText = false;
         private bool _layoutApplied = false;
+        private bool _showMenuStrip = true;
+        private bool _menuInjected = false;
+        private bool _menuInjectionScheduled = false;
 
         // 视图菜单项字段
         private ToolStripMenuItem _menuViewGrid;
@@ -67,6 +70,7 @@ namespace CloudNativeDesigner.Controls
             InitializeComponent();
             BuildToolStrip();
             BuildStatusBar();
+            BuildPropertyPanel();
             BuildLayout();
             WireEvents();
             ApplyTheme();
@@ -83,14 +87,6 @@ namespace CloudNativeDesigner.Controls
             _mainSplit.Panel1MinSize = 120;
             // SplitterDistance 不在此设置，延迟到 OnLayout
 
-            _rightSplit = new SplitContainer();
-            _rightSplit.Dock = DockStyle.Fill;
-            _rightSplit.Orientation = Orientation.Vertical;
-            _rightSplit.FixedPanel = FixedPanel.Panel2;
-            _rightSplit.Panel1MinSize = 100;
-            _rightSplit.Panel2MinSize = 100;
-            // SplitterDistance 不在此设置，延迟到 OnLayout
-
             _toolbox = new ToolboxPanel();
             _toolbox.Dock = DockStyle.Fill;
 
@@ -105,12 +101,49 @@ namespace CloudNativeDesigner.Controls
             _propertyGrid.SelectedObject = GlobalConfig.Instance;
         }
 
+        private void BuildPropertyPanel()
+        {
+            _propertyPanel = new Form();
+            _propertyPanel.Text = "属性";
+            _propertyPanel.Size = new Size(320, 600);
+            _propertyPanel.StartPosition = FormStartPosition.Manual;
+            _propertyPanel.FormBorderStyle = FormBorderStyle.SizableToolWindow;
+            _propertyPanel.ShowInTaskbar = false;
+            _propertyPanel.ControlBox = true;
+            _propertyPanel.MinimizeBox = false;
+            _propertyPanel.MaximizeBox = false;
+            _propertyPanel.Controls.Add(_propertyGrid);
+            _propertyPanel.Visible = false;
+            _propertyPanel.FormClosed += new FormClosedEventHandler(OnPropertyPanelClosed);
+            _propertyPanel.Closing += new CancelEventHandler(OnPropertyPanelClosing);
+        }
+
+        private void OnPropertyPanelClosing(object sender, CancelEventArgs e)
+        {
+            e.Cancel = true;
+            _propertyPanel.Hide();
+            if (_menuViewProperty != null)
+                _menuViewProperty.Checked = false;
+        }
+
+        private void OnPropertyPanelClosed(object sender, FormClosedEventArgs e)
+        {
+            // 窗体被强制关闭时重建
+            if (_propertyGrid != null && !_propertyGrid.IsDisposed)
+                return;
+            _propertyGrid = new PropertyGrid();
+            _propertyGrid.Dock = DockStyle.Fill;
+            _propertyGrid.ToolbarVisible = true;
+            _propertyGrid.HelpVisible = true;
+            _propertyGrid.PropertySort = PropertySort.CategorizedAlphabetical;
+            _propertyGrid.SelectedObject = GlobalConfig.Instance;
+            BuildPropertyPanel();
+        }
+
         private void BuildLayout()
         {
             _mainSplit.Panel1.Controls.Add(_toolbox);
-            _rightSplit.Panel1.Controls.Add(_canvas);
-            _rightSplit.Panel2.Controls.Add(_propertyGrid);
-            _mainSplit.Panel2.Controls.Add(_rightSplit);
+            _mainSplit.Panel2.Controls.Add(_canvas);
 
             this.Controls.Add(_mainSplit);
             this.Controls.Add(_toolStrip);
@@ -137,9 +170,6 @@ namespace CloudNativeDesigner.Controls
         {
             // _mainSplit: 工具箱 220px，如果宽度不够则用 1/5
             SafeSetSplitterDistance(_mainSplit, 220, 0.2f);
-
-            // _rightSplit: 属性栏 280px，如果宽度不够则用 1/3
-            SafeSetSplitterDistance(_rightSplit, 280, 0.66f);
         }
 
         private void SafeSetSplitterDistance(SplitContainer split, int desiredPixels, float fallbackRatio)
@@ -472,10 +502,25 @@ namespace CloudNativeDesigner.Controls
         [Description("是否显示属性栏")]
         public bool ShowPropertyPanel
         {
-            get { return !_rightSplit.Panel2Collapsed; }
+            get { return _propertyPanel != null && _propertyPanel.Visible; }
             set
             {
-                _rightSplit.Panel2Collapsed = !value;
+                if (_propertyPanel == null)
+                    return;
+                if (value)
+                {
+                    Form owner = this.FindForm();
+                    if (owner != null)
+                    {
+                        Point pt = this.PointToScreen(new Point(this.Width - _propertyPanel.Width, 0));
+                        _propertyPanel.Location = pt;
+                        _propertyPanel.Show(owner);
+                    }
+                }
+                else
+                {
+                    _propertyPanel.Hide();
+                }
                 if (_menuViewProperty != null)
                     _menuViewProperty.Checked = value;
             }
@@ -495,17 +540,15 @@ namespace CloudNativeDesigner.Controls
         }
 
         [Category("面板")]
-        [Description("是否显示菜单栏")]
+        [Description("是否启用菜单栏（自动注入宿主窗体菜单）")]
         public bool ShowMenuStrip
         {
-            get
-            {
-                if (_hostMenu != null) return _hostMenu.Visible;
-                return true;
-            }
+            get { return _showMenuStrip; }
             set
             {
-                if (_hostMenu != null) _hostMenu.Visible = value;
+                _showMenuStrip = value;
+                if (value && !_menuInjected)
+                    TryAutoInjectMenu();
             }
         }
 
@@ -660,29 +703,110 @@ namespace CloudNativeDesigner.Controls
             _canvas.Invalidate();
         }
 
-        // ===== 宿主集成 =====
+        // ===== 自动菜单注入 =====
 
-        public void ConfigureHostForm(Form parentForm)
+        protected override void OnParentChanged(EventArgs e)
         {
-            if (parentForm == null)
+            base.OnParentChanged(e);
+            ScheduleMenuInjection();
+        }
+
+        private void ScheduleMenuInjection()
+        {
+            if (!_showMenuStrip || _menuInjected || _menuInjectionScheduled)
                 return;
-            if (parentForm.MainMenuStrip != null)
+
+            _menuInjectionScheduled = true;
+
+            if (this.IsHandleCreated)
             {
-                _hostMenu = parentForm.MainMenuStrip;
+                // 句柄已创建，延迟到下一次消息循环
+                BeginInvoke(new MethodInvoker(TryAutoInjectMenu));
+            }
+            else
+            {
+                // 句柄尚未创建，订阅 HandleCreated 事件
+                this.HandleCreated += new EventHandler(OnHandleCreatedForMenuInjection);
             }
         }
 
-        public void ConfigureMenu(MenuStrip hostMenu)
+        private void OnHandleCreatedForMenuInjection(object sender, EventArgs e)
         {
-            if (hostMenu == null)
+            this.HandleCreated -= new EventHandler(OnHandleCreatedForMenuInjection);
+            TryAutoInjectMenu();
+        }
+
+        private void TryAutoInjectMenu()
+        {
+            _menuInjectionScheduled = false;
+
+            if (!_showMenuStrip || _menuInjected)
                 return;
-            _hostMenu = hostMenu;
-            InjectMenus();
+
+            Form topForm = GetTopLevelForm();
+            if (topForm == null)
+                return;
+
+            MenuStrip menu = FindMenuStripInForm(topForm);
+            if (menu != null)
+            {
+                _hostMenu = menu;
+                InjectMenus();
+                ApplyTheme();
+            }
+            else
+            {
+                // 尚未找到 MenuStrip，监听宿主 Form 的 ControlAdded 事件等待注入
+                topForm.ControlAdded += new ControlEventHandler(OnHostControlAdded);
+            }
+        }
+
+        private void OnHostControlAdded(object sender, ControlEventArgs e)
+        {
+            if (e.Control is MenuStrip)
+            {
+                Form topForm = sender as Form;
+                if (topForm != null)
+                    topForm.ControlAdded -= new ControlEventHandler(OnHostControlAdded);
+                if (!_menuInjected && _showMenuStrip)
+                {
+                    _hostMenu = (MenuStrip)e.Control;
+                    InjectMenus();
+                    ApplyTheme();
+                }
+            }
+        }
+
+        private Form GetTopLevelForm()
+        {
+            Control c = this;
+            while (c != null)
+            {
+                if (c is Form)
+                    return (Form)c;
+                c = c.Parent;
+            }
+            return null;
+        }
+
+        private MenuStrip FindMenuStripInForm(Form form)
+        {
+            if (form.MainMenuStrip != null)
+                return form.MainMenuStrip;
+
+            foreach (Control c in form.Controls)
+            {
+                if (c is MenuStrip)
+                    return (MenuStrip)c;
+            }
+            return null;
         }
 
         private void InjectMenus()
         {
             if (_hostMenu == null)
+                return;
+            if (_menuInjected)
                 return;
 
             ToolStripMenuItem fileMenu = FindOrCreateMenu(_hostMenu, "文件(&F)");
@@ -709,7 +833,7 @@ namespace CloudNativeDesigner.Controls
             viewMenu.DropDownItems.Add(_menuViewToolbar);
             _menuViewToolbarText = CreateCheckMenuItem("工具栏文字", false, new EventHandler(OnViewToolbarText));
             viewMenu.DropDownItems.Add(_menuViewToolbarText);
-            _menuViewProperty = CreateCheckMenuItem("属性栏", true, new EventHandler(OnViewProperty));
+            _menuViewProperty = CreateCheckMenuItem("属性栏", false, new EventHandler(OnViewProperty));
             viewMenu.DropDownItems.Add(_menuViewProperty);
             _menuViewToolbox = CreateCheckMenuItem("工具箱", true, new EventHandler(OnViewToolbox));
             viewMenu.DropDownItems.Add(_menuViewToolbox);
@@ -751,6 +875,7 @@ namespace CloudNativeDesigner.Controls
             shapeMenu.DropDownItems.Add(_menuShapeToBack);
 
             UpdateThemeCheckState();
+            _menuInjected = true;
         }
 
         private ToolStripMenuItem FindOrCreateMenu(MenuStrip menuStrip, string text)

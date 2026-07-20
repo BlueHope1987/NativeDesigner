@@ -40,10 +40,6 @@ namespace CloudNativeDesigner.Controls
         private RectangleF _resizeOriginalBounds;
         private PointF _resizeStartPoint;
 
-        private BufferedGraphics _bufferedGraphics;
-        private BufferedGraphicsContext _bufferContext;
-        private Size _bufferSize;
-
         public DrawingCanvas()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint |
@@ -54,9 +50,6 @@ namespace CloudNativeDesigner.Controls
             this.BackColor = GlobalConfig.Instance.CanvasBackground;
             this.AllowDrop = true;
             this.Focus();
-
-            _bufferContext = BufferedGraphicsManager.Current;
-            _bufferContext.MaximumBuffer = new Size(4096, 4096);
 
             GlobalConfig.Instance.Changed += new EventHandler(OnGlobalConfigChanged);
             _document.DocumentChanged += new EventHandler(OnDocumentChanged);
@@ -707,13 +700,6 @@ namespace CloudNativeDesigner.Controls
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
-            {
-                if (_bufferedGraphics != null)
-                    _bufferedGraphics.Dispose();
-                if (_bufferContext != null)
-                    _bufferContext.Dispose();
-            }
             base.Dispose(disposing);
         }
     }

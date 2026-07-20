@@ -146,23 +146,22 @@ namespace CloudNativeDesigner.Core
             float absH = _height * bounds.Height;
             RectangleF rect = new RectangleF(absX, absY, absW, absH);
 
-            Color fill = _useShapeColors ? colors.FillColor : _fillColor.ToColor();
             Color stroke = _useShapeColors ? colors.BorderColor : _strokeColor.ToColor();
             Color textColor = colors.TextColor;
 
             switch (_commandType)
             {
                 case RenderCommandType.Rectangle:
-                    DrawRectangle(g, rect, fill, stroke, scale);
+                    DrawRectangle(g, rect, colors, stroke, scale);
                     break;
                 case RenderCommandType.Ellipse:
-                    DrawEllipse(g, rect, fill, stroke, scale);
+                    DrawEllipse(g, rect, colors, stroke, scale);
                     break;
                 case RenderCommandType.RoundedRect:
-                    DrawRoundedRect(g, rect, fill, stroke, scale);
+                    DrawRoundedRect(g, rect, colors, stroke, scale);
                     break;
                 case RenderCommandType.Polygon:
-                    DrawPolygon(g, rect, fill, stroke, scale);
+                    DrawPolygon(g, rect, colors, stroke, scale);
                     break;
                 case RenderCommandType.Line:
                     DrawLine(g, rect, stroke, scale);
@@ -173,11 +172,24 @@ namespace CloudNativeDesigner.Core
             }
         }
 
-        private void DrawRectangle(Graphics g, RectangleF rect, Color fill, Color stroke, float scale)
+        private Brush CreateFillBrush(RectangleF rect, ShapeColors colors)
+        {
+            if (colors.UseGradient)
+            {
+                return new LinearGradientBrush(
+                    new PointF(rect.X, rect.Y),
+                    new PointF(rect.Right, rect.Bottom),
+                    colors.FillColorDark,
+                    colors.FillColorLight);
+            }
+            return new SolidBrush(colors.FillColor);
+        }
+
+        private void DrawRectangle(Graphics g, RectangleF rect, ShapeColors colors, Color stroke, float scale)
         {
             if (_fill)
             {
-                using (Brush brush = new SolidBrush(fill))
+                using (Brush brush = CreateFillBrush(rect, colors))
                     g.FillRectangle(brush, rect);
             }
             if (_stroke)
@@ -187,11 +199,11 @@ namespace CloudNativeDesigner.Core
             }
         }
 
-        private void DrawEllipse(Graphics g, RectangleF rect, Color fill, Color stroke, float scale)
+        private void DrawEllipse(Graphics g, RectangleF rect, ShapeColors colors, Color stroke, float scale)
         {
             if (_fill)
             {
-                using (Brush brush = new SolidBrush(fill))
+                using (Brush brush = CreateFillBrush(rect, colors))
                     g.FillEllipse(brush, rect);
             }
             if (_stroke)
@@ -201,13 +213,13 @@ namespace CloudNativeDesigner.Core
             }
         }
 
-        private void DrawRoundedRect(Graphics g, RectangleF rect, Color fill, Color stroke, float scale)
+        private void DrawRoundedRect(Graphics g, RectangleF rect, ShapeColors colors, Color stroke, float scale)
         {
             using (GraphicsPath path = GraphicsUtility.CreateRoundedRectPath(rect, _cornerRadius))
             {
                 if (_fill)
                 {
-                    using (Brush brush = new SolidBrush(fill))
+                    using (Brush brush = CreateFillBrush(rect, colors))
                         g.FillPath(brush, path);
                 }
                 if (_stroke)
@@ -218,7 +230,7 @@ namespace CloudNativeDesigner.Core
             }
         }
 
-        private void DrawPolygon(Graphics g, RectangleF rect, Color fill, Color stroke, float scale)
+        private void DrawPolygon(Graphics g, RectangleF rect, ShapeColors colors, Color stroke, float scale)
         {
             if (_polygonPoints == null || _polygonPoints.Length < 3)
                 return;
@@ -233,7 +245,7 @@ namespace CloudNativeDesigner.Core
 
             if (_fill)
             {
-                using (Brush brush = new SolidBrush(fill))
+                using (Brush brush = CreateFillBrush(rect, colors))
                     g.FillPolygon(brush, pts);
             }
             if (_stroke)
@@ -289,5 +301,8 @@ namespace CloudNativeDesigner.Core
         public Color BorderColor = Color.Black;
         public Color TextColor = Color.Black;
         public Color HeaderColor = Color.Gray;
+        public Color FillColorLight = Color.White;
+        public Color FillColorDark = Color.White;
+        public bool UseGradient = true;
     }
 }

@@ -423,6 +423,7 @@ namespace CloudNativeDesigner.Controls
 
         private void OnCtxProps(object sender, EventArgs e)
         {
+            ShowPropertyPanel = true;
             _propertyGrid.Focus();
         }
 

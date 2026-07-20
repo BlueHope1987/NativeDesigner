@@ -11,20 +11,16 @@ namespace CloudNativeDesigner.Controls
 {
     public partial class DrawingCanvas : Control
     {
+        protected override void OnPaintBackground(PaintEventArgs pevent)
+        {
+            DrawFixedBackground(pevent.Graphics);
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
 
-            if (_bufferedGraphics == null || _bufferSize != ClientSize)
-            {
-                if (_bufferedGraphics != null)
-                    _bufferedGraphics.Dispose();
-                _bufferedGraphics = _bufferContext.Allocate(e.Graphics, ClientRectangle);
-                _bufferSize = ClientSize;
-            }
-
-            Graphics g = _bufferedGraphics.Graphics;
-            DrawBackground(g);
+            Graphics g = e.Graphics;
 
             if (GlobalConfig.Instance.AntiAlias)
             {
@@ -42,10 +38,9 @@ namespace CloudNativeDesigner.Controls
             DrawSelectionRect(g);
 
             g.ResetTransform();
-            _bufferedGraphics.Render(e.Graphics);
         }
 
-        private void DrawBackground(Graphics g)
+        private void DrawFixedBackground(Graphics g)
         {
             Color bgColor = GlobalConfig.Instance.CanvasBackground;
             Color centerColor = GlobalConfig.Instance.GradientCenterColor;

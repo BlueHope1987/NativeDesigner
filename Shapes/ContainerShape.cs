@@ -116,7 +116,7 @@ namespace CloudNativeDesigner.Shapes
 
             using (GraphicsPath path = GraphicsUtility.CreateRoundedRectPath(rect, 6f))
             {
-                using (Brush brush = new SolidBrush(FillColor))
+                using (Brush brush = ShapeBase.CreateGradientBrush(rect, FillColor))
                 {
                     g.FillPath(brush, path);
                 }

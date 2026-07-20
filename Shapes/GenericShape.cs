@@ -102,10 +102,7 @@ namespace CloudNativeDesigner.Shapes
         public override void Draw(Graphics g, float scale)
         {
             ShapeType type = ShapeTypeRegistry.Instance.GetShapeType(_shapeTypeName);
-            ShapeColors colors = new ShapeColors();
-            colors.FillColor = FillColor;
-            colors.BorderColor = BorderColor;
-            colors.TextColor = TextColor;
+            ShapeColors colors = ComputeGradientColors();
 
             if (type != null)
             {
@@ -124,9 +121,38 @@ namespace CloudNativeDesigner.Shapes
             DrawSelection(g, scale);
         }
 
+        private ShapeColors ComputeGradientColors()
+        {
+            ShapeColors colors = new ShapeColors();
+            colors.FillColor = FillColor;
+            colors.BorderColor = BorderColor;
+            colors.TextColor = TextColor;
+            colors.UseGradient = true;
+
+            float brightness = FillColor.R * 0.299f + FillColor.G * 0.587f + FillColor.B * 0.114f;
+
+            if (brightness > 220f)
+            {
+                colors.FillColorDark = ShapeBase.DarkenColor(FillColor, 0.05f);
+                colors.FillColorLight = ShapeBase.DarkenColor(FillColor, 0.01f);
+            }
+            else if (brightness < 60f)
+            {
+                colors.FillColorDark = ShapeBase.LightenColor(FillColor, 0.02f);
+                colors.FillColorLight = ShapeBase.LightenColor(FillColor, 0.05f);
+            }
+            else
+            {
+                colors.FillColorDark = ShapeBase.DarkenColor(FillColor, 0.04f);
+                colors.FillColorLight = ShapeBase.LightenColor(FillColor, 0.03f);
+            }
+
+            return colors;
+        }
+
         private void DrawFallback(Graphics g, ShapeColors colors, float scale)
         {
-            using (Brush brush = new SolidBrush(colors.FillColor))
+            using (Brush brush = ShapeBase.CreateGradientBrush(Bounds, colors.FillColor))
             {
                 g.FillRectangle(brush, Bounds);
             }

@@ -26,9 +26,7 @@ namespace DemoApp
             this.MainMenuStrip = _menuStrip;
             this.Controls.Add(_menuStrip);
 
-            // 3. 将控件功能菜单注入宿主菜单栏
-            _editor.ConfigureMenu(_menuStrip);
-            _editor.ConfigureHostForm(this);
+            // 3. 控件会自动通过 ParentChanged 枚举宿主菜单并注入
 
             this.Text = "云原生可视化设计器 - 演示应用";
             this.Size = new Size(1400, 900);

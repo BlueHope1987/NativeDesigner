@@ -226,6 +226,63 @@ namespace CloudNativeDesigner.Config
         {
         }
 
+        // ===== 马卡龙色系调色板 =====
+
+        public static Color[] MacaronPalette
+        {
+            get
+            {
+                return new Color[] {
+                    Color.FromArgb(255, 214, 220),  // 草莓粉 Strawberry Pink
+                    Color.FromArgb(255, 218, 193),  // 蜜桃杏 Peach Apricot
+                    Color.FromArgb(255, 236, 179),  // 柠檬黄 Lemon Yellow
+                    Color.FromArgb(221, 238, 187),  // 抹茶绿 Matcha Green
+                    Color.FromArgb(178, 223, 219),  // 薄荷青 Mint Teal
+                    Color.FromArgb(199, 211, 236),  // 蓝莓蓝 Blueberry Blue
+                    Color.FromArgb(210, 196, 232),  // 薰衣草 Lavender
+                    Color.FromArgb(235, 198, 218),  // 玫瑰粉 Rose Pink
+                    Color.FromArgb(198, 224, 180),  // 青苹果 Green Apple
+                    Color.FromArgb(238, 223, 197),  // 奶油白 Cream White
+                    Color.FromArgb(181, 215, 230),  // 天空蓝 Sky Blue
+                    Color.FromArgb(228, 209, 191),  // 焦糖棕 Caramel Brown
+                };
+            }
+        }
+
+        public static string[] MacaronPaletteNames
+        {
+            get
+            {
+                return new string[] {
+                    "草莓粉", "蜜桃杏", "柠檬黄", "抹茶绿",
+                    "薄荷青", "蓝莓蓝", "薰衣草", "玫瑰粉",
+                    "青苹果", "奶油白", "天空蓝", "焦糖棕"
+                };
+            }
+        }
+
+        // 马卡龙色系配套边框色（较深）
+        public static Color[] MacaronBorderPalette
+        {
+            get
+            {
+                return new Color[] {
+                    Color.FromArgb(200, 120, 130),  // 草莓粉
+                    Color.FromArgb(200, 150, 110),  // 蜜桃杏
+                    Color.FromArgb(200, 170, 100),  // 柠檬黄
+                    Color.FromArgb(140, 175, 120),  // 抹茶绿
+                    Color.FromArgb(110, 160, 155),  // 薄荷青
+                    Color.FromArgb(120, 145, 180),  // 蓝莓蓝
+                    Color.FromArgb(145, 125, 175),  // 薰衣草
+                    Color.FromArgb(175, 120, 145),  // 玫瑰粉
+                    Color.FromArgb(130, 165, 115),  // 青苹果
+                    Color.FromArgb(175, 160, 135),  // 奶油白
+                    Color.FromArgb(115, 155, 175),  // 天空蓝
+                    Color.FromArgb(170, 140, 120),  // 焦糖棕
+                };
+            }
+        }
+
         public event EventHandler Changed;
 
         private void NotifyChanged()
