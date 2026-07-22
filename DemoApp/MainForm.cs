@@ -31,7 +31,20 @@ namespace DemoApp
             // 3. 宿主自行构建文件菜单
             BuildFileMenu();
 
-            // 4. 控件会自动注入其余菜单（编辑/视图/工具/图形）
+            // 4. 设置默认画布配置（编辑器启动时即应用）
+            CanvasConfig defaultConfig = new CanvasConfig();
+            defaultConfig.ShowToolbar = true;
+            defaultConfig.ShowToolboxPanel = true;
+            defaultConfig.ShowStatusBar = true;
+            defaultConfig.ShowPropertyPanel = false;
+            defaultConfig.ShowMenuStrip = true;
+            defaultConfig.ShowContextMenu = true;
+            defaultConfig.ShowToolbarText = false;
+            defaultConfig.Theme = "Light";
+            defaultConfig.ContextMenuMode = ContextMenuMode.EditMode;
+            _editor.ApplyCanvasConfig(defaultConfig);
+
+            // 5. 控件会自动注入其余菜单（编辑/视图/工具/图形）
 
             this.Text = "云原生可视化设计器 - 演示应用";
             this.Size = new Size(1400, 900);
@@ -39,7 +52,27 @@ namespace DemoApp
             this.Icon = SystemIcons.Application;
 
             InitializeShapeTypes();
-            _editor.Canvas.Document.DocumentChanged += new EventHandler(OnDocumentChanged);
+
+            // ===== 示范：两种自定义图形定义方式 =====
+
+            // 方式1：构建画布文档并传入（适用于从文件/网络加载完整配置）
+            // CanvasConfig runtimeConfig = new CanvasConfig();
+            // runtimeConfig.ShowToolbar = false;
+            // runtimeConfig.ShowToolboxPanel = false;
+            // runtimeConfig.ShowStatusBar = true;
+            // runtimeConfig.ShowPropertyPanel = false;
+            // runtimeConfig.Theme = "Dark";
+            // DrawingDocument doc = new DrawingDocument();
+            // doc.AddShape(ShapeLibrary.Cloud.CreateInstance());
+            // _editor.SetDocument(doc, runtimeConfig);
+
+            // 方式2：方法调用（适用于运行时动态配置）
+            // _editor.Canvas.Config.ShowToolbar = true;
+            // _editor.Canvas.Config.ShowToolboxPanel = true;
+            // _editor.Canvas.Config.ShowStatusBar = true;
+            // _editor.Canvas.Config.Theme = "Light";
+            // _editor.ApplyCanvasConfig(_editor.Canvas.Config);
+
             InitializeSampleData();
         }
 
@@ -61,7 +94,28 @@ namespace DemoApp
         {
             _editor.ClearDocument();
             _currentFilePath = "";
+            // 新建文档时复位为编辑时默认配置
+            ResetToEditMode();
             UpdateTitle();
+        }
+
+        /// <summary>
+        /// 复位编辑器到编辑时默认配置
+        /// </summary>
+        private void ResetToEditMode()
+        {
+            CanvasConfig editConfig = new CanvasConfig();
+            editConfig.ShowToolbar = true;
+            editConfig.ShowToolboxPanel = true;
+            editConfig.ShowStatusBar = true;
+            editConfig.ShowPropertyPanel = false;
+            editConfig.ShowMenuStrip = true;
+            editConfig.ShowContextMenu = true;
+            editConfig.ShowToolbarText = false;
+            editConfig.Theme = "Light";
+            editConfig.ContextMenuMode = ContextMenuMode.EditMode;
+            _editor.ApplyCanvasConfig(editConfig);
+            _editor.Canvas.Config = editConfig;
         }
 
         private void OnFileOpen(object sender, EventArgs e)
@@ -75,6 +129,7 @@ namespace DemoApp
                 try
                 {
                     DrawingDocument doc = XmlShapeSerializer.Load(dlg.FileName);
+                    // 加载文档，配置随文档自动应用
                     _editor.SetDocument(doc);
                     _currentFilePath = dlg.FileName;
                     UpdateTitle();
@@ -96,6 +151,8 @@ namespace DemoApp
             }
             try
             {
+                // 保存前将当前编辑器配置同步到文档
+                _editor.GetDocument().Config = _editor.BuildCanvasConfig();
                 XmlShapeSerializer.Save(_currentFilePath, _editor.GetDocument());
                 UpdateTitle();
             }
@@ -119,6 +176,8 @@ namespace DemoApp
 
                 try
                 {
+                    // 保存前将当前编辑器配置同步到文档
+                    _editor.GetDocument().Config = _editor.BuildCanvasConfig();
                     XmlShapeSerializer.Save(dlg.FileName, _editor.GetDocument());
                     _currentFilePath = dlg.FileName;
                     UpdateTitle();
@@ -145,11 +204,6 @@ namespace DemoApp
         }
 
         #endregion
-
-        private void OnDocumentChanged(object sender, EventArgs e)
-        {
-            // 可选：响应文档变更，例如更新标题栏
-        }
 
         #region Shape Type Registration
 

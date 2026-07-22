@@ -11,6 +11,7 @@ namespace CloudNativeDesigner.Core
         private List<Connection> _connections = new List<Connection>();
         private string _name = "未命名";
         private SizeF _pageSize = new SizeF(2000, 1500);
+        private CanvasConfig _config = new CanvasConfig();
 
         public string Name
         {
@@ -22,6 +23,16 @@ namespace CloudNativeDesigner.Core
         {
             get { return _pageSize; }
             set { _pageSize = value; }
+        }
+
+        /// <summary>
+        /// 画布配置，随文档一起序列化存储。
+        /// 包含编辑器 UI 状态（工具栏、属性面板、主题等）
+        /// </summary>
+        public CanvasConfig Config
+        {
+            get { return _config; }
+            set { _config = value; }
         }
 
         public List<ShapeBase> Shapes { get { return _shapes; } }

@@ -39,6 +39,7 @@ namespace CloudNativeDesigner.Controls
         private ShapeBase _resizeShape = null;
         private RectangleF _resizeOriginalBounds;
         private PointF _resizeStartPoint;
+        private CanvasConfig _config = new CanvasConfig();
 
         public DrawingCanvas()
         {
@@ -66,6 +67,16 @@ namespace CloudNativeDesigner.Controls
         }
 
         public DrawingDocument Document { get { return _document; } }
+
+        /// <summary>
+        /// 画布配置。宿主可通过此对象读取/设置编辑器的 UI 状态和工具配置。
+        /// 加载画布时先设置 Config，再将其传递给 DiagramEditor 初始化。
+        /// </summary>
+        public CanvasConfig Config
+        {
+            get { return _config; }
+            set { _config = value; }
+        }
 
         public CanvasTool CurrentTool
         {

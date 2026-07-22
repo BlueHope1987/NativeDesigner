@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CloudNativeDesigner.Core;
 
 namespace CloudNativeDesigner.Serialization
 {
@@ -9,6 +10,7 @@ namespace CloudNativeDesigner.Serialization
         private string _name = "未命名";
         private float _pageWidth = 2000f;
         private float _pageHeight = 1500f;
+        private CanvasConfig _config = new CanvasConfig();
         private List<ShapeData> _shapes = new List<ShapeData>();
         private List<ConnectionData> _connections = new List<ConnectionData>();
 
@@ -28,6 +30,15 @@ namespace CloudNativeDesigner.Serialization
         {
             get { return _pageHeight; }
             set { _pageHeight = value; }
+        }
+
+        /// <summary>
+        /// 画布配置，随文档一起序列化存储
+        /// </summary>
+        public CanvasConfig Config
+        {
+            get { return _config; }
+            set { _config = value; }
         }
 
         public List<ShapeData> Shapes

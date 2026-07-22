@@ -979,6 +979,13 @@ namespace CloudNativeDesigner.Core
         {
             ShapeType t = CreateBase("类", "UML", Color.FromArgb(250, 248, 240), Color.FromArgb(100, 100, 100), 180, 160);
             t.SupportsMembers = true;
+            t.NameAlignment = NameAlignment.TopCenter;
+            t.NameAreaTop = 0.22f;
+            t.Resizable = true;
+
+            // 自定义操作：添加成员
+            t.CustomActions.Add(ShapeAction.CreateCallback("添加成员", "add_member", "add_member.png"));
+
             t.RenderCommands.Add(RoundedRectCmd(0, 0, 1, 1, 4f, true));
             t.RenderCommands.Add(TextCmd(0, 0, 1, 0.22f, "", "center", 11f, true));
             t.RenderCommands.Add(LineCmd(0f, 0.22f, 1f, 0.22f, Color.FromArgb(180, 180, 180)));

@@ -38,6 +38,7 @@ namespace CloudNativeDesigner.Serialization
             data.Name = document.Name;
             data.PageWidth = document.PageSize.Width;
             data.PageHeight = document.PageSize.Height;
+            data.Config = document.Config;
 
             Dictionary<ShapeBase, string> idMap = new Dictionary<ShapeBase, string>();
 
@@ -88,6 +89,8 @@ namespace CloudNativeDesigner.Serialization
             DrawingDocument document = new DrawingDocument();
             document.Name = data.Name;
             document.PageSize = new SizeF(data.PageWidth, data.PageHeight);
+            if (data.Config != null)
+                document.Config = data.Config;
 
             Dictionary<string, ShapeBase> shapeMap = new Dictionary<string, ShapeBase>();
             Dictionary<string, string> parentMap = new Dictionary<string, string>();

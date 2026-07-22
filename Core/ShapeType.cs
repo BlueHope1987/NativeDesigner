@@ -5,6 +5,19 @@ using CloudNativeDesigner.Shapes;
 
 namespace CloudNativeDesigner.Core
 {
+    /// <summary>
+    /// 图形名称在边界内的对齐方式
+    /// </summary>
+    public enum NameAlignment
+    {
+        /// <summary>居中（默认，适用于大多数图形）</summary>
+        Center,
+        /// <summary>靠上居中（适用于类图等有成员区域的图形）</summary>
+        TopCenter,
+        /// <summary>靠左上角</summary>
+        TopLeft
+    }
+
     [Serializable]
     public class ShapeType
     {
@@ -21,6 +34,11 @@ namespace CloudNativeDesigner.Core
         private XmlColor _defaultBorderColor = new XmlColor(Color.FromArgb(80, 120, 180));
         private XmlColor _defaultTextColor = new XmlColor(Color.FromArgb(40, 40, 40));
         private List<ShapeState> _defaultStates = new List<ShapeState>();
+        private NameAlignment _nameAlignment = NameAlignment.Center;
+        private float _nameAreaTop = 0.35f;
+        private bool _allowRename = false;
+        private bool _resizable = false;
+        private List<ShapeAction> _customActions = new List<ShapeAction>();
 
         public string Name
         {
@@ -100,6 +118,53 @@ namespace CloudNativeDesigner.Core
             set { _defaultStates = value; }
         }
 
+        /// <summary>
+        /// 名称在图形内的对齐方式。类图应设为 TopCenter，一般图形默认 Center。
+        /// </summary>
+        public NameAlignment NameAlignment
+        {
+            get { return _nameAlignment; }
+            set { _nameAlignment = value; }
+        }
+
+        /// <summary>
+        /// 名称区域顶部的相对位置（0~1），仅在 SupportsMembers=true 时有效。
+        /// 类图设为 0.22 使类名靠上，默认 0.35。
+        /// </summary>
+        public float NameAreaTop
+        {
+            get { return _nameAreaTop; }
+            set { _nameAreaTop = value; }
+        }
+
+        /// <summary>
+        /// 是否允许在画布上直接重命名
+        /// </summary>
+        public bool AllowRename
+        {
+            get { return _allowRename; }
+            set { _allowRename = value; }
+        }
+
+        /// <summary>
+        /// 该图形类型的实例是否可调整大小
+        /// </summary>
+        public bool Resizable
+        {
+            get { return _resizable; }
+            set { _resizable = value; }
+        }
+
+        /// <summary>
+        /// 该图形类型的自定义操作列表。在右键菜单中显示，
+        /// 可通过宿主回调或状态切换执行。
+        /// </summary>
+        public List<ShapeAction> CustomActions
+        {
+            get { return _customActions; }
+            set { _customActions = value; }
+        }
+
         public ShapeType() { }
 
         public ShapeBase CreateInstance()
@@ -123,6 +188,8 @@ namespace CloudNativeDesigner.Core
                 shape.FillColor = _defaultFillColor.ToColor();
                 shape.BorderColor = _defaultBorderColor.ToColor();
                 shape.TextColor = _defaultTextColor.ToColor();
+                shape.Resizable = _resizable;
+                shape.MemberAreaTop = _nameAreaTop;
 
                 foreach (ShapeState state in _defaultStates)
                 {

@@ -11,6 +11,110 @@ namespace CloudNativeDesigner.Controls
 {
     public partial class DiagramEditor : UserControl
     {
+        #region 宿主回调
+
+        /// <summary>
+        /// 宿主注册的操作回调。键为 ShapeAction.CallbackName，值为处理函数。
+        /// 处理函数签名：void(GraphicShape shape)
+        /// </summary>
+        private Dictionary<string, EventHandler<ShapeActionEventArgs>> _actionCallbacks =
+            new Dictionary<string, EventHandler<ShapeActionEventArgs>>();
+
+        /// <summary>
+        /// 注册宿主回调，供 ShapeAction.ActionType = HostCallback 时使用
+        /// </summary>
+        public void RegisterActionCallback(string callbackName, EventHandler<ShapeActionEventArgs> handler)
+        {
+            if (string.IsNullOrEmpty(callbackName) || handler == null)
+                return;
+            _actionCallbacks[callbackName] = handler;
+        }
+
+        /// <summary>
+        /// 从画布配置同步编辑器 UI 状态
+        /// </summary>
+        public void ApplyCanvasConfig(CanvasConfig config)
+        {
+            if (config == null)
+                return;
+
+            ShowToolbar = config.ShowToolbar;
+            ShowToolboxPanel = config.ShowToolboxPanel;
+            ShowMenuStrip = config.ShowMenuStrip;
+            ShowStatusBar = config.ShowStatusBar;
+            ShowContextMenu = config.ShowContextMenu;
+            ShowToolbarText = config.ShowToolbarText;
+
+            // 主题
+            if (config.Theme == "Dark")
+                Theme = EditorTheme.Dark;
+            else
+                Theme = EditorTheme.Light;
+
+            // 连线模式
+            SetConnectionMode(config.ConnectionMode);
+
+            // 属性面板
+            if (config.ShowPropertyPanel)
+                ShowPropertyPanel = true;
+
+            // RuntimeMode 下强制隐藏编辑时 UI
+            if (config.ContextMenuMode == ContextMenuMode.RuntimeMode)
+            {
+                ShowPropertyPanel = false;
+                if (_propertyPanel != null && _propertyPanel.Visible)
+                    _propertyPanel.Hide();
+            }
+        }
+
+        /// <summary>
+        /// 从编辑器当前状态构建画布配置
+        /// </summary>
+        public CanvasConfig BuildCanvasConfig()
+        {
+            CanvasConfig config = new CanvasConfig();
+            config.ShowToolbar = ShowToolbar;
+            config.ShowPropertyPanel = ShowPropertyPanel;
+            config.ShowToolboxPanel = ShowToolboxPanel;
+            config.ShowMenuStrip = ShowMenuStrip;
+            config.ShowStatusBar = ShowStatusBar;
+            config.ShowContextMenu = ShowContextMenu;
+            config.ShowToolbarText = ShowToolbarText;
+            config.Theme = (Theme == EditorTheme.Dark) ? "Dark" : "Light";
+            config.ConnectionMode = GlobalConfig.Instance.DefaultConnectionMode;
+
+            // 收集已注册的图形类型名
+            foreach (ShapeType st in ShapeTypeRegistry.Instance.GetAllTypes())
+            {
+                config.ShapeTypeNames.Add(st.Name);
+            }
+
+            return config;
+        }
+
+        /// <summary>
+        /// 注册控件内置的图形操作回调。控件自身负责处理内置图形的默认行为。
+        /// </summary>
+        private void RegisterBuiltinActions()
+        {
+            RegisterActionCallback("add_member", new EventHandler<ShapeActionEventArgs>(OnBuiltinAddMember));
+        }
+
+        private void OnBuiltinAddMember(object sender, ShapeActionEventArgs e)
+        {
+            GenericShape shape = e.Shape as GenericShape;
+            if (shape == null)
+                return;
+
+            ShapeMember m = new ShapeMember();
+            m.Name = "NewMember";
+            m.TypeName = "string";
+            shape.Members.Add(m);
+            _canvas.Invalidate();
+        }
+
+        #endregion
+
         #region 菜单事件处理
 
         private void OnEditDelete(object sender, EventArgs e)
@@ -202,7 +306,8 @@ namespace CloudNativeDesigner.Controls
             }
             else
             {
-                _propertyGrid.SelectedObject = GlobalConfig.Instance;
+                // 无选中时显示画布配置，可在属性面板直接编辑
+                _propertyGrid.SelectedObject = _canvas.Config;
             }
 
             _statusLabel.Text = string.Format("选中: {0} 个实体, {1} 条连线",
@@ -227,7 +332,19 @@ namespace CloudNativeDesigner.Controls
         {
             if (e.Button == MouseButtons.Right && _contextMenuEnabled)
             {
-                ShowCanvasContextMenu(e.Location);
+                // RuntimeMode 下不显示空画布右键菜单
+                if (_canvas.Config.ContextMenuMode == ContextMenuMode.RuntimeMode)
+                    return;
+
+                List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
+                if (selectedShapes.Count > 0)
+                {
+                    ShowShapeContextMenu(e.Location);
+                }
+                else
+                {
+                    ShowCanvasConfigMenu(e.Location);
+                }
             }
         }
 
@@ -240,92 +357,124 @@ namespace CloudNativeDesigner.Controls
 
             if (_menuEditDelete != null)
                 _menuEditDelete.Enabled = hasSelection;
-
             if (_menuShapeToFront != null)
                 _menuShapeToFront.Enabled = hasSelection;
             if (_menuShapeToBack != null)
                 _menuShapeToBack.Enabled = hasSelection;
-
-            bool canAddMember = false;
-            bool canSwitchState = false;
-
-            if (selectedShapes.Count == 1)
-            {
-                GenericShape gs = selectedShapes[0] as GenericShape;
-                if (gs != null)
-                {
-                    ShapeType st = ShapeTypeRegistry.Instance.GetShapeType(gs.ShapeTypeName);
-                    if (st != null && st.SupportsMembers)
-                    {
-                        canAddMember = true;
-                        canSwitchState = (gs.States.Count > 1);
-                    }
-                }
-            }
-
-            if (_menuShapeAddMember != null)
-                _menuShapeAddMember.Enabled = canAddMember;
-            if (_menuShapeSwitchState != null)
-                _menuShapeSwitchState.Enabled = canSwitchState;
         }
 
         #region 右键菜单
 
-        private void ShowCanvasContextMenu(Point location)
+        private void ShowShapeContextMenu(Point location)
         {
             ContextMenuStrip menu = new ContextMenuStrip();
-
             List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
-            bool hasSingleGenericShape = false;
-            bool supportsMembers = false;
+            ContextMenuMode mode = _canvas.Config.ContextMenuMode;
 
+            // 动态生成：基于 ShapeType.CustomActions（运行时操作，两种模式都显示）
             if (selectedShapes.Count == 1)
             {
                 GenericShape gs = selectedShapes[0] as GenericShape;
                 if (gs != null)
                 {
-                    hasSingleGenericShape = true;
                     ShapeType st = ShapeTypeRegistry.Instance.GetShapeType(gs.ShapeTypeName);
-                    if (st != null && st.SupportsMembers)
+                    if (st != null && st.CustomActions != null)
                     {
-                        supportsMembers = true;
+                        foreach (ShapeAction action in st.CustomActions)
+                        {
+                            Image icon = LoadIcon(action.IconName);
+                            ToolStripMenuItem item = new ToolStripMenuItem(action.Name, icon,
+                                new EventHandler(OnShapeAction));
+                            item.Tag = action;
+                            menu.Items.Add(item);
+                        }
+                        if (st.CustomActions.Count > 0)
+                            menu.Items.Add(new ToolStripSeparator());
                     }
                 }
             }
 
-            if (hasSingleGenericShape && supportsMembers)
+            // 编辑模式下才显示删除、置顶/置底、属性等编辑项
+            if (mode == ContextMenuMode.EditMode)
             {
-                ToolStripMenuItem itemAddMember = new ToolStripMenuItem("添加成员",
-                    LoadIcon("add_member.png"), new EventHandler(OnCtxAddMember));
-                ToolStripMenuItem itemSwitchState = new ToolStripMenuItem("切换状态",
-                    LoadIcon("switch_state.png"), new EventHandler(OnCtxSwitchState));
-                menu.Items.Add(itemAddMember);
-                menu.Items.Add(itemSwitchState);
+                ToolStripMenuItem itemDelete = new ToolStripMenuItem("删除",
+                    LoadIcon("delete.png"), new EventHandler(OnCtxDelete));
+                itemDelete.ShortcutKeyDisplayString = "Delete";
+                menu.Items.Add(itemDelete);
+
+                if (selectedShapes.Count > 1)
+                {
+                    ToolStripMenuItem itemFront = new ToolStripMenuItem("置顶",
+                        LoadIcon("to_front.png"), new EventHandler(OnCtxFront));
+                    ToolStripMenuItem itemBack = new ToolStripMenuItem("置底",
+                        LoadIcon("to_back.png"), new EventHandler(OnCtxBack));
+                    menu.Items.Add(itemFront);
+                    menu.Items.Add(itemBack);
+                }
+
                 menu.Items.Add(new ToolStripSeparator());
+
+                ToolStripMenuItem itemProps = new ToolStripMenuItem("属性...",
+                    LoadIcon("properties.png"), new EventHandler(OnCtxProps));
+                menu.Items.Add(itemProps);
             }
-
-            ToolStripMenuItem itemDelete = new ToolStripMenuItem("删除",
-                LoadIcon("delete.png"), new EventHandler(OnCtxDelete));
-            itemDelete.ShortcutKeyDisplayString = "Delete";
-            menu.Items.Add(itemDelete);
-
-            if (selectedShapes.Count > 1)
-            {
-                ToolStripMenuItem itemFront = new ToolStripMenuItem("置顶",
-                    LoadIcon("to_front.png"), new EventHandler(OnCtxFront));
-                ToolStripMenuItem itemBack = new ToolStripMenuItem("置底",
-                    LoadIcon("to_back.png"), new EventHandler(OnCtxBack));
-                menu.Items.Add(itemFront);
-                menu.Items.Add(itemBack);
-            }
-
-            menu.Items.Add(new ToolStripSeparator());
-
-            ToolStripMenuItem itemProps = new ToolStripMenuItem("属性...",
-                LoadIcon("properties.png"), new EventHandler(OnCtxProps));
-            menu.Items.Add(itemProps);
 
             menu.Show(_canvas, location);
+        }
+
+        private void ShowCanvasConfigMenu(Point location)
+        {
+            // 空画布右键只保留"画布属性"入口，所有配置项已移至属性面板
+            ContextMenuStrip menu = new ContextMenuStrip();
+            ToolStripMenuItem itemConfig = new ToolStripMenuItem("画布属性",
+                LoadIcon("properties.png"), new EventHandler(OnCfgShowPropertyPanel));
+            menu.Items.Add(itemConfig);
+            menu.Show(_canvas, location);
+        }
+
+        private void OnCfgShowPropertyPanel(object sender, EventArgs e)
+        {
+            ShowPropertyPanel = true;
+            _propertyGrid.SelectedObject = _canvas.Config;
+            _propertyGrid.Focus();
+        }
+
+        private void OnShapeAction(object sender, EventArgs e)
+        {
+            ToolStripMenuItem item = sender as ToolStripMenuItem;
+            if (item == null || item.Tag == null)
+                return;
+
+            ShapeAction action = item.Tag as ShapeAction;
+            if (action == null)
+                return;
+
+            List<ShapeBase> shapes = _canvas.Document.GetSelectedShapes();
+            if (shapes.Count != 1)
+                return;
+
+            GenericShape gs = shapes[0] as GenericShape;
+            if (gs == null)
+                return;
+
+            switch (action.ActionType)
+            {
+                case ShapeActionType.StateChange:
+                    if (!string.IsNullOrEmpty(action.TargetState))
+                    {
+                        gs.CurrentStateName = action.TargetState;
+                        _canvas.Invalidate();
+                    }
+                    break;
+
+                case ShapeActionType.HostCallback:
+                    if (_actionCallbacks.ContainsKey(action.CallbackName))
+                    {
+                        ShapeActionEventArgs args = new ShapeActionEventArgs(gs, action.Name);
+                        _actionCallbacks[action.CallbackName](this, args);
+                    }
+                    break;
+            }
         }
 
         private void OnCtxDelete(object sender, EventArgs e)
@@ -347,47 +496,6 @@ namespace CloudNativeDesigner.Controls
         {
             ShowPropertyPanel = true;
             _propertyGrid.Focus();
-        }
-
-        private void OnCtxAddMember(object sender, EventArgs e)
-        {
-            List<ShapeBase> shapes = _canvas.Document.GetSelectedShapes();
-            if (shapes.Count == 1)
-            {
-                GenericShape genericShape = shapes[0] as GenericShape;
-                if (genericShape != null)
-                {
-                    ShapeMember m = new ShapeMember();
-                    m.Name = "NewMember";
-                    m.TypeName = "string";
-                    genericShape.Members.Add(m);
-                    _canvas.Invalidate();
-                }
-            }
-        }
-
-        private void OnCtxSwitchState(object sender, EventArgs e)
-        {
-            List<ShapeBase> shapes = _canvas.Document.GetSelectedShapes();
-            if (shapes.Count == 1)
-            {
-                GenericShape genericShape = shapes[0] as GenericShape;
-                if (genericShape != null && genericShape.States.Count > 1)
-                {
-                    int idx = 0;
-                    for (int i = 0; i < genericShape.States.Count; i++)
-                    {
-                        if (genericShape.States[i].Name == genericShape.CurrentStateName)
-                        {
-                            idx = i;
-                            break;
-                        }
-                    }
-                    idx = (idx + 1) % genericShape.States.Count;
-                    genericShape.CurrentStateName = genericShape.States[idx].Name;
-                    _canvas.Invalidate();
-                }
-            }
         }
 
         #endregion

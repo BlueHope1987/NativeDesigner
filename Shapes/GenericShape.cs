@@ -167,20 +167,48 @@ namespace CloudNativeDesigner.Shapes
             if (string.IsNullOrEmpty(Name))
                 return;
 
+            ShapeType type = ShapeTypeRegistry.Instance.GetShapeType(_shapeTypeName);
+
             using (Font font = new Font("Microsoft YaHei", 10f / scale, FontStyle.Regular))
             using (Brush brush = new SolidBrush(TextColor))
             {
                 StringFormat sf = new StringFormat();
-                sf.Alignment = StringAlignment.Center;
-                sf.LineAlignment = StringAlignment.Center;
                 sf.Trimming = StringTrimming.EllipsisCharacter;
 
                 RectangleF textRect = Bounds;
                 textRect.Inflate(-6 / scale, -6 / scale);
-                if (_members != null && _members.Count > 0)
+
+                bool hasMembers = (_members != null && _members.Count > 0);
+
+                if (hasMembers)
                 {
                     textRect.Height = Bounds.Height * _memberAreaTop;
                 }
+
+                // 根据 ShapeType 的名称对齐方式调整
+                NameAlignment alignment = NameAlignment.Center;
+                if (type != null)
+                    alignment = type.NameAlignment;
+
+                switch (alignment)
+                {
+                    case NameAlignment.TopLeft:
+                        sf.Alignment = StringAlignment.Near;
+                        sf.LineAlignment = StringAlignment.Near;
+                        break;
+
+                    case NameAlignment.TopCenter:
+                        sf.Alignment = StringAlignment.Center;
+                        sf.LineAlignment = hasMembers ? StringAlignment.Center : StringAlignment.Near;
+                        break;
+
+                    case NameAlignment.Center:
+                    default:
+                        sf.Alignment = StringAlignment.Center;
+                        sf.LineAlignment = StringAlignment.Center;
+                        break;
+                }
+
                 g.DrawString(Name, font, brush, textRect, sf);
             }
         }

@@ -61,8 +61,6 @@ namespace CloudNativeDesigner.Controls
         private ToolStripMenuItem _menuEditDelete;
 
         // 图形操作菜单项
-        private ToolStripMenuItem _menuShapeAddMember;
-        private ToolStripMenuItem _menuShapeSwitchState;
         private ToolStripMenuItem _menuShapeToFront;
         private ToolStripMenuItem _menuShapeToBack;
 
@@ -74,6 +72,7 @@ namespace CloudNativeDesigner.Controls
             BuildPropertyPanel();
             BuildLayout();
             WireEvents();
+            RegisterBuiltinActions();
             ApplyTheme();
         }
 
@@ -440,12 +439,19 @@ namespace CloudNativeDesigner.Controls
                     return;
                 if (value)
                 {
-                    Form owner = this.FindForm();
-                    if (owner != null)
+                    if (!_propertyPanel.Visible)
                     {
-                        Point pt = this.PointToScreen(new Point(this.Width - _propertyPanel.Width, 0));
-                        _propertyPanel.Location = pt;
-                        _propertyPanel.Show(owner);
+                        Form owner = this.FindForm();
+                        if (owner != null)
+                        {
+                            Point pt = this.PointToScreen(new Point(this.Width - _propertyPanel.Width, 0));
+                            _propertyPanel.Location = pt;
+                            _propertyPanel.Show(owner);
+                        }
+                    }
+                    else
+                    {
+                        _propertyPanel.Focus();
                     }
                 }
                 else
@@ -610,7 +616,7 @@ namespace CloudNativeDesigner.Controls
         }
 
         /// <summary>
-        /// 用新的文档替换当前画布内容
+        /// 用新的文档替换当前画布内容，并应用文档中存储的配置
         /// </summary>
         public void SetDocument(DrawingDocument document)
         {
@@ -623,16 +629,36 @@ namespace CloudNativeDesigner.Controls
                 _canvas.Document.AddConnection(conn);
             _propertyGrid.SelectedObject = GlobalConfig.Instance;
             _canvas.Invalidate();
+
+            // 应用文档自带的配置（工具栏、属性面板、工具箱等 UI 状态）
+            if (document.Config != null)
+            {
+                _canvas.Config = document.Config;
+                ApplyCanvasConfig(document.Config);
+            }
         }
 
         /// <summary>
-        /// 清空当前画布
+        /// 用文档和配置替换当前画布内容。这是宿主"构建画布文档并传入"的推荐方式。
+        /// </summary>
+        public void SetDocument(DrawingDocument document, CanvasConfig config)
+        {
+            if (document != null)
+                document.Config = config;
+            SetDocument(document);
+        }
+
+        /// <summary>
+        /// 清空当前画布，并应用画布配置
         /// </summary>
         public void ClearDocument()
         {
             _canvas.Document.Clear();
             _propertyGrid.SelectedObject = GlobalConfig.Instance;
             _canvas.Invalidate();
+
+            // 应用画布配置
+            ApplyCanvasConfig(_canvas.Config);
         }
 
         // ===== 自动菜单注入 =====
@@ -794,13 +820,6 @@ namespace CloudNativeDesigner.Controls
             toolsMenu.DropDownItems.Add(MarkInjected(CreateMenuItem("折线模式", "line_ortho.png", new EventHandler(OnToolOrtho))));
 
             ToolStripMenuItem shapeMenu = FindOrCreateMenu(_hostMenu, "图形(&S)");
-            _menuShapeAddMember = MarkInjectedMenu(CreateMenuItem("添加成员", "add_member.png", new EventHandler(OnCtxAddMember)));
-            _menuShapeAddMember.Enabled = false;
-            shapeMenu.DropDownItems.Add(_menuShapeAddMember);
-            _menuShapeSwitchState = MarkInjectedMenu(CreateMenuItem("切换状态", "switch_state.png", new EventHandler(OnCtxSwitchState)));
-            _menuShapeSwitchState.Enabled = false;
-            shapeMenu.DropDownItems.Add(_menuShapeSwitchState);
-            shapeMenu.DropDownItems.Add(MarkInjected(new ToolStripSeparator()));
             _menuShapeToFront = MarkInjectedMenu(CreateMenuItem("置顶", "to_front.png", new EventHandler(OnBringToFront)));
             _menuShapeToFront.Enabled = false;
             shapeMenu.DropDownItems.Add(_menuShapeToFront);
@@ -899,8 +918,6 @@ namespace CloudNativeDesigner.Controls
             _menuViewStatusBar = null;
             _menuViewThemeLight = null;
             _menuViewThemeDark = null;
-            _menuShapeAddMember = null;
-            _menuShapeSwitchState = null;
             _menuShapeToFront = null;
             _menuShapeToBack = null;
         }
@@ -1020,6 +1037,11 @@ namespace CloudNativeDesigner.Controls
 
         private void OnPropertyValueChanged(object s, PropertyValueChangedEventArgs e)
         {
+            // 如果修改的是画布配置属性，实时应用配置变更
+            if (_propertyGrid.SelectedObject == _canvas.Config)
+            {
+                ApplyCanvasConfig(_canvas.Config);
+            }
             _canvas.Invalidate();
         }
     }
