@@ -12,6 +12,9 @@ namespace CloudNativeDesigner.Core
         private static readonly Dictionary<string, ShapeType> _library = new Dictionary<string, ShapeType>();
         private static bool _initialized = false;
 
+        // .NET 2.0 兼容：自定义委托替代 Func<T>
+        private delegate ShapeType ShapeFactory();
+
         #region 基本图形
 
         public static ShapeType Rectangle
@@ -293,9 +296,12 @@ namespace CloudNativeDesigner.Core
         {
             get
             {
-                HashSet<string> cats = new HashSet<string>();
+                List<string> cats = new List<string>();
                 foreach (ShapeType t in All)
-                    cats.Add(t.Category);
+                {
+                    if (!cats.Contains(t.Category))
+                        cats.Add(t.Category);
+                }
                 return cats;
             }
         }
@@ -359,7 +365,7 @@ namespace CloudNativeDesigner.Core
         {
             if (_initialized) return;
             // 触发所有静态属性的初始化
-            var _ = Rectangle; _ = RoundedRectangle; _ = Ellipse; _ = Diamond;
+            ShapeType _ = Rectangle; _ = RoundedRectangle; _ = Ellipse; _ = Diamond;
             _ = Triangle; _ = RightTriangle; _ = Pentagon; _ = Hexagon;
             _ = Octagon; _ = Star; _ = Cross; _ = Trapezoid;
             _ = Parallelogram; _ = Teardrop; _ = Ring;
@@ -376,7 +382,7 @@ namespace CloudNativeDesigner.Core
             _initialized = true;
         }
 
-        private static ShapeType GetOrCreate(string name, string category, Func<ShapeType> factory)
+        private static ShapeType GetOrCreate(string name, string category, ShapeFactory factory)
         {
             if (_library.ContainsKey(name))
                 return _library[name];

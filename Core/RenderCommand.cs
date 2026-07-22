@@ -31,7 +31,7 @@ namespace CloudNativeDesigner.Core
         private string _textAlign = "center";
         private float _fontSize = 10f;
         private bool _isBold = false;
-        private PointF[] _polygonPoints = new PointF[0];
+        private PointF[] _polygonPoints = null;
         private bool _useShapeColors = true;
         private bool _fill = true;
         private bool _stroke = true;
