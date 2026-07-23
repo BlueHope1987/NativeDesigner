@@ -31,20 +31,7 @@ namespace DemoApp
             // 3. 宿主自行构建文件菜单
             BuildFileMenu();
 
-            // 4. 设置默认画布配置（编辑器启动时即应用）
-            CanvasConfig defaultConfig = new CanvasConfig();
-            defaultConfig.ShowToolbar = true;
-            defaultConfig.ShowToolboxPanel = true;
-            defaultConfig.ShowStatusBar = true;
-            defaultConfig.ShowPropertyPanel = false;
-            defaultConfig.ShowMenuStrip = true;
-            defaultConfig.ShowContextMenu = true;
-            defaultConfig.ShowToolbarText = false;
-            defaultConfig.Theme = "Light";
-            defaultConfig.ContextMenuMode = ContextMenuMode.EditMode;
-            _editor.ApplyCanvasConfig(defaultConfig);
-
-            // 5. 控件会自动注入其余菜单（编辑/视图/工具/图形）
+            // 4. 控件会自动注入其余菜单（编辑/视图/工具/图形）
 
             this.Text = "云原生可视化设计器 - 演示应用";
             this.Size = new Size(1400, 900);
@@ -113,7 +100,7 @@ namespace DemoApp
             editConfig.ShowContextMenu = true;
             editConfig.ShowToolbarText = false;
             editConfig.Theme = "Light";
-            editConfig.ContextMenuMode = ContextMenuMode.EditMode;
+            editConfig.DesignMode = true;
             _editor.ApplyCanvasConfig(editConfig);
             _editor.Canvas.Config = editConfig;
         }

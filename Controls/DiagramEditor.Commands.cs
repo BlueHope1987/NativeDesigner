@@ -58,9 +58,12 @@ namespace CloudNativeDesigner.Controls
             if (config.ShowPropertyPanel)
                 ShowPropertyPanel = true;
 
-            // RuntimeMode 下强制隐藏编辑时 UI
-            if (config.ContextMenuMode == ContextMenuMode.RuntimeMode)
+            // 非设计模式下隐藏编辑时 UI，但保留工具箱（运行时工具可能用到）
+            if (!config.DesignMode)
             {
+                ShowToolbar = false;
+                ShowMenuStrip = false;
+                ShowStatusBar = false;
                 ShowPropertyPanel = false;
                 if (_propertyPanel != null && _propertyPanel.Visible)
                     _propertyPanel.Hide();
@@ -82,6 +85,7 @@ namespace CloudNativeDesigner.Controls
             config.ShowToolbarText = ShowToolbarText;
             config.Theme = (Theme == EditorTheme.Dark) ? "Dark" : "Light";
             config.ConnectionMode = GlobalConfig.Instance.DefaultConnectionMode;
+            config.DesignMode = _canvas.Config.DesignMode;
 
             // 收集已注册的图形类型名
             foreach (ShapeType st in ShapeTypeRegistry.Instance.GetAllTypes())
@@ -332,18 +336,30 @@ namespace CloudNativeDesigner.Controls
         {
             if (e.Button == MouseButtons.Right && _contextMenuEnabled)
             {
-                // RuntimeMode 下不显示空画布右键菜单
-                if (_canvas.Config.ContextMenuMode == ContextMenuMode.RuntimeMode)
-                    return;
-
                 List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
+
+                // 若当前无选中，尝试选中鼠标处的图形
+                if (selectedShapes.Count == 0)
+                {
+                    PointF world = _canvas.ScreenToWorld(e.Location);
+                    ShapeBase hit = _canvas.Document.HitTestShape(world);
+                    if (hit != null)
+                    {
+                        hit.Selected = true;
+                        selectedShapes.Add(hit);
+                        _canvas.Invalidate();
+                    }
+                }
+
                 if (selectedShapes.Count > 0)
                 {
                     ShowShapeContextMenu(e.Location);
                 }
                 else
                 {
-                    ShowCanvasConfigMenu(e.Location);
+                    // 非设计模式下不显示空画布配置菜单
+                    if (_canvas.Config.DesignMode)
+                        ShowCanvasConfigMenu(e.Location);
                 }
             }
         }
@@ -369,9 +385,9 @@ namespace CloudNativeDesigner.Controls
         {
             ContextMenuStrip menu = new ContextMenuStrip();
             List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
-            ContextMenuMode mode = _canvas.Config.ContextMenuMode;
+            bool designMode = _canvas.Config.DesignMode;
 
-            // 动态生成：基于 ShapeType.CustomActions（运行时操作，两种模式都显示）
+            // 动态生成：基于 ShapeType.CustomActions（运行时操作，始终显示）
             if (selectedShapes.Count == 1)
             {
                 GenericShape gs = selectedShapes[0] as GenericShape;
@@ -394,8 +410,8 @@ namespace CloudNativeDesigner.Controls
                 }
             }
 
-            // 编辑模式下才显示删除、置顶/置底、属性等编辑项
-            if (mode == ContextMenuMode.EditMode)
+            // 设计模式下才显示删除、置顶/置底、属性等编辑项
+            if (designMode)
             {
                 ToolStripMenuItem itemDelete = new ToolStripMenuItem("删除",
                     LoadIcon("delete.png"), new EventHandler(OnCtxDelete));

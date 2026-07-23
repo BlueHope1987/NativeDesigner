@@ -6,19 +6,6 @@ using CloudNativeDesigner.Config;
 namespace CloudNativeDesigner.Core
 {
     /// <summary>
-    /// 右键菜单显示模式
-    /// </summary>
-    public enum ContextMenuMode
-    {
-        /// <summary>编辑模式：显示所有编辑相关菜单项（属性、删除、置顶、置底等）</summary>
-        [Description("编辑模式")]
-        EditMode,
-        /// <summary>运行模式：只显示图形相关的运行时操作（如添加成员、切换状态等）</summary>
-        [Description("运行模式")]
-        RuntimeMode
-    }
-
-    /// <summary>
     /// 画布配置。存储编辑器的 UI 状态和工具配置，
     /// 可由宿主定义并在加载画布时初始化编辑器状态。
     /// 作为 DrawingDocument 的一部分随文档序列化。
@@ -36,7 +23,7 @@ namespace CloudNativeDesigner.Core
         private bool _showToolbarText = false;
         private string _theme = "Light";
         private ConnectionMode _connectionMode = ConnectionMode.Straight;
-        private ContextMenuMode _contextMenuMode = ContextMenuMode.EditMode;
+        private bool _designMode = true;
         private List<string> _enabledToolNames = new List<string>();
         private List<string> _shapeTypeNames = new List<string>();
 
@@ -113,11 +100,11 @@ namespace CloudNativeDesigner.Core
         }
 
         [Category("行为")]
-        [Description("右键菜单显示模式：EditMode 显示编辑项，RuntimeMode 只显示运行时操作")]
-        public ContextMenuMode ContextMenuMode
+        [Description("设计模式。false 时隐藏工具栏、工具箱、菜单栏等编辑 UI，仅保留运行时操作")]
+        public bool DesignMode
         {
-            get { return _contextMenuMode; }
-            set { _contextMenuMode = value; }
+            get { return _designMode; }
+            set { _designMode = value; }
         }
 
         [Category("工具")]
@@ -140,7 +127,7 @@ namespace CloudNativeDesigner.Core
 
         public override string ToString()
         {
-            return string.Format("{0}, {1}", _theme, _contextMenuMode);
+            return string.Format("{0}, DesignMode={1}", _theme, _designMode);
         }
     }
 }
