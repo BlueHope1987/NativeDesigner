@@ -68,6 +68,9 @@ namespace CloudNativeDesigner.Controls
                 if (_propertyPanel != null && _propertyPanel.Visible)
                     _propertyPanel.Hide();
             }
+
+            // 应用工具箱可见性过滤
+            _toolbox.ApplyVisibilityFilter(config.VisibleToolNames);
         }
 
         /// <summary>
@@ -86,6 +89,9 @@ namespace CloudNativeDesigner.Controls
             config.Theme = (Theme == EditorTheme.Dark) ? "Dark" : "Light";
             config.ConnectionMode = GlobalConfig.Instance.DefaultConnectionMode;
             config.DesignMode = _canvas.Config.DesignMode;
+
+            // 收集工具箱可见图形名
+            config.VisibleToolNames = _toolbox.GetVisibleNames();
 
             // 收集已注册的图形类型名
             foreach (ShapeType st in ShapeTypeRegistry.Instance.GetAllTypes())
@@ -332,24 +338,35 @@ namespace CloudNativeDesigner.Controls
                 _canvas.Zoom * 100, world.X, world.Y);
         }
 
-        private void OnCanvasMouseClick(object sender, MouseEventArgs e)
+        private void OnCanvasMouseDown(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right && _contextMenuEnabled)
             {
-                List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
+                PointF world = _canvas.ScreenToWorld(e.Location);
+                ShapeBase hit = _canvas.Document.HitTestShape(world);
 
-                // 若当前无选中，尝试选中鼠标处的图形
-                if (selectedShapes.Count == 0)
+                if (hit != null)
                 {
-                    PointF world = _canvas.ScreenToWorld(e.Location);
-                    ShapeBase hit = _canvas.Document.HitTestShape(world);
-                    if (hit != null)
+                    // 点击已选中的图形：保持多选状态
+                    // 点击未选中的图形：切换选中（Ctrl 按下时追加）
+                    if (!hit.Selected)
                     {
+                        if ((Control.ModifierKeys & Keys.Control) != Keys.Control)
+                            _canvas.Document.ClearSelection();
                         hit.Selected = true;
-                        selectedShapes.Add(hit);
+                        _canvas.OnSelectionChanged();
                         _canvas.Invalidate();
                     }
                 }
+                else
+                {
+                    // 右键空白处：清除选中
+                    _canvas.Document.ClearSelection();
+                    _canvas.OnSelectionChanged();
+                    _canvas.Invalidate();
+                }
+
+                List<ShapeBase> selectedShapes = _canvas.Document.GetSelectedShapes();
 
                 if (selectedShapes.Count > 0)
                 {

@@ -114,7 +114,7 @@ namespace CloudNativeDesigner.Controls
         public event EventHandler SelectionChanged;
         public event EventHandler DocumentModified;
 
-        protected virtual void OnSelectionChanged()
+        public void OnSelectionChanged()
         {
             if (SelectionChanged != null)
                 SelectionChanged(this, EventArgs.Empty);

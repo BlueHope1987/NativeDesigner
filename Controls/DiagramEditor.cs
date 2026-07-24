@@ -341,7 +341,7 @@ namespace CloudNativeDesigner.Controls
             _canvas.SelectionChanged += new EventHandler(OnCanvasSelectionChanged);
             _canvas.DocumentModified += new EventHandler(OnDocumentModified);
             _canvas.MouseMove += new MouseEventHandler(OnCanvasMouseMove);
-            _canvas.MouseClick += new MouseEventHandler(OnCanvasMouseClick);
+            _canvas.MouseDown += new MouseEventHandler(OnCanvasMouseDown);
             _propertyGrid.PropertyValueChanged += new PropertyValueChangedEventHandler(OnPropertyValueChanged);
 
             // 工具栏按钮事件绑定

@@ -26,6 +26,7 @@ namespace CloudNativeDesigner.Core
         private bool _designMode = true;
         private List<string> _enabledToolNames = new List<string>();
         private List<string> _shapeTypeNames = new List<string>();
+        private List<string> _visibleToolNames = new List<string>();
 
         [Category("面板")]
         [Description("是否显示工具栏")]
@@ -121,6 +122,14 @@ namespace CloudNativeDesigner.Core
         {
             get { return _shapeTypeNames; }
             set { _shapeTypeNames = value; }
+        }
+
+        [Category("图形")]
+        [Description("工具箱中可见的图形类型名列表（空或 null 表示全部显示）")]
+        public List<string> VisibleToolNames
+        {
+            get { return _visibleToolNames; }
+            set { _visibleToolNames = value; }
         }
 
         public CanvasConfig() { }

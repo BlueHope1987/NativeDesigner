@@ -15,6 +15,7 @@ namespace CloudNativeDesigner.Controls
         private string _category;
         private Bitmap _icon;
         private CreateShapeHandler _createShape;
+        private bool _visible = true;
 
         public string Name
         {
@@ -39,6 +40,13 @@ namespace CloudNativeDesigner.Controls
             get { return _createShape; }
             set { _createShape = value; }
         }
+
+        /// <summary>是否在工具箱中可见</summary>
+        public bool Visible
+        {
+            get { return _visible; }
+            set { _visible = value; }
+        }
     }
 
     public class ToolboxPanel : Panel
@@ -48,6 +56,7 @@ namespace CloudNativeDesigner.Controls
         private int _itemHeight = 36;
         private int _iconSize = 28;
         private int _padding = 4;
+        private ContextMenuStrip _contextMenu;
 
         public ToolboxPanel()
         {
@@ -55,7 +64,18 @@ namespace CloudNativeDesigner.Controls
             this.BorderStyle = BorderStyle.FixedSingle;
             this.AutoScroll = true;
             this.DoubleBuffered = true;
+            BuildContextMenu();
         }
+
+        private void BuildContextMenu()
+        {
+            _contextMenu = new ContextMenuStrip();
+            ToolStripMenuItem itemConfig = new ToolStripMenuItem("添加/删除工具...",
+                null, new EventHandler(OnToolboxConfig));
+            _contextMenu.Items.Add(itemConfig);
+        }
+
+        private ToolboxItem _contextTarget = null;
 
         public void ReloadFromRegistry()
         {
@@ -83,6 +103,41 @@ namespace CloudNativeDesigner.Controls
             this.Update();
         }
 
+        /// <summary>
+        /// 根据可见图形名列表过滤工具箱显示
+        /// </summary>
+        public void ApplyVisibilityFilter(List<string> visibleNames)
+        {
+            if (visibleNames == null || visibleNames.Count == 0)
+            {
+                // 空/null 表示全部显示
+                foreach (ToolboxItem item in _items)
+                    item.Visible = true;
+            }
+            else
+            {
+                foreach (ToolboxItem item in _items)
+                    item.Visible = visibleNames.Contains(item.Name);
+            }
+            int totalHeight = CalculateContentHeight();
+            this.AutoScrollMinSize = new Size(0, totalHeight);
+            this.Invalidate(true);
+        }
+
+        /// <summary>
+        /// 获取当前工具箱中可见的图形名列表
+        /// </summary>
+        public List<string> GetVisibleNames()
+        {
+            List<string> names = new List<string>();
+            foreach (ToolboxItem item in _items)
+            {
+                if (item.Visible)
+                    names.Add(item.Name);
+            }
+            return names;
+        }
+
         private int CalculateContentHeight()
         {
             if (_items.Count == 0)
@@ -92,6 +147,7 @@ namespace CloudNativeDesigner.Controls
             string currentCategory = null;
             foreach (ToolboxItem item in _items)
             {
+                if (!item.Visible) continue;
                 if (item.Category != currentCategory)
                 {
                     currentCategory = item.Category;
@@ -121,12 +177,24 @@ namespace CloudNativeDesigner.Controls
 
         public ToolboxItem SelectedItem { get { return _selectedItem; } }
 
+        /// <summary>
+        /// 获取所有工具箱项（包括不可见的）
+        /// </summary>
+        public List<ToolboxItem> AllItems { get { return _items; } }
+
         public event EventHandler ItemSelected;
+        public event EventHandler ToolboxChanged;
 
         protected virtual void OnItemSelected(ToolboxItem item)
         {
             if (ItemSelected != null)
                 ItemSelected(this, EventArgs.Empty);
+        }
+
+        protected virtual void OnToolboxChanged()
+        {
+            if (ToolboxChanged != null)
+                ToolboxChanged(this, EventArgs.Empty);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -155,6 +223,8 @@ namespace CloudNativeDesigner.Controls
 
             foreach (ToolboxItem item in _items)
             {
+                if (!item.Visible) continue;
+
                 if (item.Category != currentCategory)
                 {
                     currentCategory = item.Category;
@@ -216,14 +286,35 @@ namespace CloudNativeDesigner.Controls
         {
             base.OnMouseDown(e);
 
+            if (e.Button == MouseButtons.Right)
+            {
+                ToolboxItem hit = HitTestItem(e.Location);
+                _contextTarget = hit;
+                _contextMenu.Show(this, e.Location);
+                return;
+            }
+
             if (e.Button != MouseButtons.Left)
                 return;
 
+            ToolboxItem clicked = HitTestItem(e.Location);
+            if (clicked != null && clicked.Visible)
+            {
+                _selectedItem = clicked;
+                OnItemSelected(clicked);
+                Invalidate();
+                DoDragDrop(clicked, DragDropEffects.Copy);
+            }
+        }
+
+        private ToolboxItem HitTestItem(Point location)
+        {
             float y = _padding + AutoScrollPosition.Y;
             string currentCategory = null;
 
             foreach (ToolboxItem item in _items)
             {
+                if (!item.Visible) continue;
                 if (item.Category != currentCategory)
                 {
                     currentCategory = item.Category;
@@ -231,16 +322,35 @@ namespace CloudNativeDesigner.Controls
                 }
 
                 RectangleF itemRect = new RectangleF(_padding, y, ClientSize.Width - _padding * 2, _itemHeight);
-                if (itemRect.Contains(e.Location))
-                {
-                    _selectedItem = item;
-                    OnItemSelected(item);
-                    Invalidate();
-                    DoDragDrop(item, DragDropEffects.Copy);
-                    return;
-                }
+                if (itemRect.Contains(location))
+                    return item;
 
                 y += _itemHeight + 2;
+            }
+            return null;
+        }
+
+        private void OnToolboxConfig(object sender, EventArgs e)
+        {
+            using (ToolboxConfigDialog dlg = new ToolboxConfigDialog(_items, ShapeTypeRegistry.Instance))
+            {
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    _items.Clear();
+                    foreach (ToolboxItem item in dlg.ResultItems)
+                    {
+                        // 为新增项生成图标
+                        if (item.Icon == null)
+                            item.Icon = CreateDefaultIcon(item);
+                        _items.Add(item);
+                    }
+                    if (!_items.Contains(_selectedItem))
+                        _selectedItem = null;
+                    int totalHeight = CalculateContentHeight();
+                    this.AutoScrollMinSize = new Size(0, totalHeight);
+                    this.Invalidate(true);
+                    OnToolboxChanged();
+                }
             }
         }
 
