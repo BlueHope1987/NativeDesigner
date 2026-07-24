@@ -69,6 +69,22 @@ namespace CloudNativeDesigner.Controls
                     _propertyPanel.Hide();
             }
 
+            // 工具箱设计模式
+            _toolbox.DesignMode = config.DesignMode;
+
+            // 加载自定义图形类型到注册表和工具箱
+            if (config.CustomShapeTypes != null)
+            {
+                foreach (ShapeType st in config.CustomShapeTypes)
+                {
+                    if (!ShapeTypeRegistry.Instance.Contains(st.Name))
+                        ShapeTypeRegistry.Instance.Register(st);
+                }
+            }
+
+            // 重新加载工具箱（包含新加载的自定义图形）
+            _toolbox.ReloadFromRegistry();
+
             // 应用工具箱可见性过滤
             _toolbox.ApplyVisibilityFilter(config.VisibleToolNames);
         }
@@ -97,6 +113,14 @@ namespace CloudNativeDesigner.Controls
             foreach (ShapeType st in ShapeTypeRegistry.Instance.GetAllTypes())
             {
                 config.ShapeTypeNames.Add(st.Name);
+            }
+
+            // 收集自定义图形类型（Category == "自定义"）用于持久化
+            config.CustomShapeTypes = new List<ShapeType>();
+            foreach (ShapeType st in ShapeTypeRegistry.Instance.GetAllTypes())
+            {
+                if (st.Category == "自定义")
+                    config.CustomShapeTypes.Add(st);
             }
 
             return config;

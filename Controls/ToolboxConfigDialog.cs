@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using CloudNativeDesigner.Core;
 
@@ -10,7 +9,7 @@ namespace CloudNativeDesigner.Controls
     /// <summary>
     /// 工具箱配置对话框。
     /// 左侧：已注册图形多选列表（勾选=启用，取消=禁用）
-    /// 右侧：上移/下移/添加自定义工具
+    /// 右侧：上移/下移/添加自定义工具/编辑/删除
     /// </summary>
     public class ToolboxConfigDialog : Form
     {
@@ -18,16 +17,16 @@ namespace CloudNativeDesigner.Controls
         private Button _btnUp;
         private Button _btnDown;
         private Button _btnAddCustom;
+        private Button _btnEdit;
+        private Button _btnDelete;
         private Button _btnOk;
         private Button _btnCancel;
-        private List<ToolboxItem> _originalItems;
         private List<ToolboxItem> _workingItems;
 
         public List<ToolboxItem> ResultItems { get { return _workingItems; } }
 
         public ToolboxConfigDialog(List<ToolboxItem> currentItems, ShapeTypeRegistry registry)
         {
-            _originalItems = currentItems;
             _workingItems = new List<ToolboxItem>();
             foreach (ToolboxItem item in currentItems)
                 _workingItems.Add(item);
@@ -37,50 +36,72 @@ namespace CloudNativeDesigner.Controls
             this.FormBorderStyle = FormBorderStyle.SizableToolWindow;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.ClientSize = new Size(420, 400);
+            this.ClientSize = new Size(460, 420);
             this.Shown += new EventHandler(OnShown);
 
             _listTools = new CheckedListBox();
             _listTools.Location = new Point(10, 10);
-            _listTools.Size = new Size(280, 340);
+            _listTools.Size = new Size(320, 340);
             _listTools.CheckOnClick = true;
             _listTools.MultiColumn = false;
             _listTools.BorderStyle = BorderStyle.FixedSingle;
+            _listTools.DoubleClick += new EventHandler(OnListDoubleClick);
             this.Controls.Add(_listTools);
 
             _btnUp = new Button();
             _btnUp.Text = "上移";
-            _btnUp.Location = new Point(300, 10);
-            _btnUp.Size = new Size(110, 30);
+            _btnUp.Location = new Point(340, 10);
+            _btnUp.Size = new Size(110, 28);
             _btnUp.Click += new EventHandler(OnMoveUp);
             this.Controls.Add(_btnUp);
 
             _btnDown = new Button();
             _btnDown.Text = "下移";
-            _btnDown.Location = new Point(300, 48);
-            _btnDown.Size = new Size(110, 30);
+            _btnDown.Location = new Point(340, 44);
+            _btnDown.Size = new Size(110, 28);
             _btnDown.Click += new EventHandler(OnMoveDown);
             this.Controls.Add(_btnDown);
 
             _btnAddCustom = new Button();
-            _btnAddCustom.Text = "添加自定义工具...";
-            _btnAddCustom.Location = new Point(300, 86);
-            _btnAddCustom.Size = new Size(110, 30);
+            _btnAddCustom.Text = "添加自定义...";
+            _btnAddCustom.Location = new Point(340, 82);
+            _btnAddCustom.Size = new Size(110, 28);
             _btnAddCustom.Click += new EventHandler(OnAddCustom);
             this.Controls.Add(_btnAddCustom);
+
+            _btnEdit = new Button();
+            _btnEdit.Text = "编辑...";
+            _btnEdit.Location = new Point(340, 120);
+            _btnEdit.Size = new Size(110, 28);
+            _btnEdit.Click += new EventHandler(OnEditCustom);
+            this.Controls.Add(_btnEdit);
+
+            _btnDelete = new Button();
+            _btnDelete.Text = "删除";
+            _btnDelete.Location = new Point(340, 154);
+            _btnDelete.Size = new Size(110, 28);
+            _btnDelete.Click += new EventHandler(OnDeleteCustom);
+            this.Controls.Add(_btnDelete);
+
+            Label lblHint = new Label();
+            lblHint.Text = "提示：\n· 勾选 = 启用\n· 双击自定义项可编辑\n· 内置工具不可删除";
+            lblHint.Location = new Point(340, 196);
+            lblHint.Size = new Size(110, 80);
+            lblHint.ForeColor = Color.FromArgb(100, 100, 100);
+            this.Controls.Add(lblHint);
 
             _btnOk = new Button();
             _btnOk.Text = "确定";
             _btnOk.DialogResult = DialogResult.OK;
-            _btnOk.Location = new Point(230, 360);
-            _btnOk.Size = new Size(80, 30);
+            _btnOk.Location = new Point(270, 380);
+            _btnOk.Size = new Size(80, 28);
             this.Controls.Add(_btnOk);
 
             _btnCancel = new Button();
             _btnCancel.Text = "取消";
             _btnCancel.DialogResult = DialogResult.Cancel;
-            _btnCancel.Location = new Point(320, 360);
-            _btnCancel.Size = new Size(80, 30);
+            _btnCancel.Location = new Point(360, 380);
+            _btnCancel.Size = new Size(80, 28);
             this.Controls.Add(_btnCancel);
 
             PopulateList();
@@ -127,9 +148,24 @@ namespace CloudNativeDesigner.Controls
             // 填充列表
             foreach (ToolboxItem item in _workingItems)
             {
-                string display = string.IsNullOrEmpty(item.Category) ? item.Name
-                    : string.Format("[{0}] {1}", item.Category, item.Name);
+                string prefix = (item.Category == "自定义") ? "[自定义] " : "";
+                string display = prefix + item.Name;
                 _listTools.Items.Add(display, item.Visible);
+            }
+        }
+
+        private bool IsCustomItem(int index)
+        {
+            if (index < 0 || index >= _workingItems.Count)
+                return false;
+            return _workingItems[index].Category == "自定义";
+        }
+
+        private void OnListDoubleClick(object sender, EventArgs e)
+        {
+            if (_listTools.SelectedIndex >= 0 && IsCustomItem(_listTools.SelectedIndex))
+            {
+                OnEditCustom(sender, e);
             }
         }
 
@@ -151,12 +187,10 @@ namespace CloudNativeDesigner.Controls
 
         private void SwapItems(int a, int b)
         {
-            // 交换 working list
             ToolboxItem tmp = _workingItems[a];
             _workingItems[a] = _workingItems[b];
             _workingItems[b] = tmp;
 
-            // 交换 checked list
             bool checkedA = _listTools.GetItemChecked(a);
             bool checkedB = _listTools.GetItemChecked(b);
             object textA = _listTools.Items[a];
@@ -174,6 +208,7 @@ namespace CloudNativeDesigner.Controls
                 if (dlg.ShowDialog() == DialogResult.OK && dlg.ResultShapeType != null)
                 {
                     ShapeType st = dlg.ResultShapeType;
+                    ShapeTypeRegistry.Instance.Register(st);
 
                     ToolboxItem item = new ToolboxItem();
                     item.Name = st.Name;
@@ -182,14 +217,62 @@ namespace CloudNativeDesigner.Controls
                     item.Visible = true;
                     item.Icon = null;
 
-                    // 注册到全局
-                    ShapeTypeRegistry.Instance.Register(st);
-
                     _workingItems.Add(item);
-                    string display = string.Format("[自定义] {0}", st.Name);
-                    _listTools.Items.Add(display, true);
+                    _listTools.Items.Add("[自定义] " + st.Name, true);
                     _listTools.SelectedIndex = _listTools.Items.Count - 1;
                 }
+            }
+        }
+
+        private void OnEditCustom(object sender, EventArgs e)
+        {
+            int idx = _listTools.SelectedIndex;
+            if (idx < 0 || !IsCustomItem(idx))
+                return;
+
+            ToolboxItem item = _workingItems[idx];
+            ShapeType st = ShapeTypeRegistry.Instance.GetShapeType(item.Name);
+            if (st == null)
+                return;
+
+            using (CustomShapeDialog dlg = new CustomShapeDialog(st))
+            {
+                if (dlg.ShowDialog() == DialogResult.OK && dlg.ResultShapeType != null)
+                {
+                    ShapeType newSt = dlg.ResultShapeType;
+                    // 从注册表移除旧的，注册新的
+                    ShapeTypeRegistry.Instance.Unregister(st.Name);
+                    ShapeTypeRegistry.Instance.Register(newSt);
+
+                    // 更新 working item
+                    item.Name = newSt.Name;
+                    item.Category = newSt.Category;
+                    item.CreateShape = new CreateShapeHandler(newSt.CreateInstance);
+                    item.Icon = null;
+
+                    // 更新列表显示
+                    string display = "[自定义] " + newSt.Name;
+                    _listTools.Items[idx] = display;
+                }
+            }
+        }
+
+        private void OnDeleteCustom(object sender, EventArgs e)
+        {
+            int idx = _listTools.SelectedIndex;
+            if (idx < 0 || !IsCustomItem(idx))
+            {
+                MessageBox.Show("只能删除自定义工具", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            ToolboxItem item = _workingItems[idx];
+            if (MessageBox.Show(string.Format("确定删除自定义工具 \"{0}\"？", item.Name),
+                "确认删除", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                ShapeTypeRegistry.Instance.Unregister(item.Name);
+                _workingItems.RemoveAt(idx);
+                _listTools.Items.RemoveAt(idx);
             }
         }
 
@@ -198,7 +281,6 @@ namespace CloudNativeDesigner.Controls
             base.OnClosed(e);
             if (this.DialogResult == DialogResult.OK)
             {
-                // 同步勾选状态到 Visible
                 for (int i = 0; i < _listTools.Items.Count && i < _workingItems.Count; i++)
                 {
                     _workingItems[i].Visible = _listTools.GetItemChecked(i);

@@ -27,6 +27,7 @@ namespace CloudNativeDesigner.Core
         private List<string> _enabledToolNames = new List<string>();
         private List<string> _shapeTypeNames = new List<string>();
         private List<string> _visibleToolNames = new List<string>();
+        private List<ShapeType> _customShapeTypes = new List<ShapeType>();
 
         [Category("面板")]
         [Description("是否显示工具栏")]
@@ -130,6 +131,15 @@ namespace CloudNativeDesigner.Core
         {
             get { return _visibleToolNames; }
             set { _visibleToolNames = value; }
+        }
+
+        [Category("图形")]
+        [Description("自定义图形类型列表，随文档持久化存储")]
+        [Browsable(false)]
+        public List<ShapeType> CustomShapeTypes
+        {
+            get { return _customShapeTypes; }
+            set { _customShapeTypes = value; }
         }
 
         public CanvasConfig() { }

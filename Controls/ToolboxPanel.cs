@@ -57,6 +57,16 @@ namespace CloudNativeDesigner.Controls
         private int _iconSize = 28;
         private int _padding = 4;
         private ContextMenuStrip _contextMenu;
+        private bool _designMode = true;
+
+        /// <summary>
+        /// 设计模式。false 时禁用工具箱编辑相关功能。
+        /// </summary>
+        public bool DesignMode
+        {
+            get { return _designMode; }
+            set { _designMode = value; }
+        }
 
         public ToolboxPanel()
         {
@@ -70,8 +80,12 @@ namespace CloudNativeDesigner.Controls
         private void BuildContextMenu()
         {
             _contextMenu = new ContextMenuStrip();
+            ToolStripMenuItem itemRemove = new ToolStripMenuItem("移除工具",
+                null, new EventHandler(OnRemoveTool));
             ToolStripMenuItem itemConfig = new ToolStripMenuItem("添加/删除工具...",
                 null, new EventHandler(OnToolboxConfig));
+            _contextMenu.Items.Add(itemRemove);
+            _contextMenu.Items.Add(new ToolStripSeparator());
             _contextMenu.Items.Add(itemConfig);
         }
 
@@ -288,8 +302,13 @@ namespace CloudNativeDesigner.Controls
 
             if (e.Button == MouseButtons.Right)
             {
+                // 非设计模式下不显示编辑菜单
+                if (!_designMode)
+                    return;
+
                 ToolboxItem hit = HitTestItem(e.Location);
                 _contextTarget = hit;
+                _contextMenu.Items[0].Enabled = (hit != null); // 移除工具仅当点中工具时可用
                 _contextMenu.Show(this, e.Location);
                 return;
             }
@@ -328,6 +347,26 @@ namespace CloudNativeDesigner.Controls
                 y += _itemHeight + 2;
             }
             return null;
+        }
+
+        private void OnRemoveTool(object sender, EventArgs e)
+        {
+            if (_contextTarget != null)
+            {
+                // 自定义工具同时从注册表移除
+                if (_contextTarget.Category == "自定义")
+                {
+                    ShapeTypeRegistry.Instance.Unregister(_contextTarget.Name);
+                }
+                _items.Remove(_contextTarget);
+                if (_selectedItem == _contextTarget)
+                    _selectedItem = null;
+                _contextTarget = null;
+                int totalHeight = CalculateContentHeight();
+                this.AutoScrollMinSize = new Size(0, totalHeight);
+                this.Invalidate(true);
+                OnToolboxChanged();
+            }
         }
 
         private void OnToolboxConfig(object sender, EventArgs e)
